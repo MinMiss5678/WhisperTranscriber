@@ -1,0 +1,34 @@
+name: Smoke Test
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+jobs:
+  install-test:
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Simulate user install (fresh venv + requirements.txt)
+        run: |
+          python -m venv test-venv
+          test-venv\Scripts\python.exe -m pip install --upgrade pip --quiet
+          test-venv\Scripts\python.exe -m pip install setuptools --quiet
+          test-venv\Scripts\python.exe -m pip install -r requirements.txt --quiet
+        shell: cmd
+
+      - name: Test core imports
+        run: |
+          test-venv\Scripts\python.exe -c "import ctranslate2; print('ctranslate2:', ctranslate2.__version__)"
+          test-venv\Scripts\python.exe -c "from faster_whisper import WhisperModel; print('faster_whisper OK')"
+          test-venv\Scripts\python.exe WhisperTranscriber.py --help
+        shell: cmd
