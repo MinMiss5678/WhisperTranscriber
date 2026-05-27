@@ -41,6 +41,7 @@ jobs:
           Copy-Item WhisperTranscriber.py  $pkg/
           Copy-Item requirements.txt       $pkg/
           Copy-Item setup.bat              $pkg/
+          Copy-Item uninstall.bat          $pkg/
           Copy-Item "使用說明.txt"          $pkg/
 
           # 壓縮
