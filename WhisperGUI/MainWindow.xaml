@@ -1,0 +1,224 @@
+<Window x:Class="WhisperGUI.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Whisper 語音辨識工具" Height="800" Width="700"
+        MinWidth="580" MinHeight="600"
+        AllowDrop="True" DragOver="Window_DragOver" Drop="Window_Drop"
+        Loaded="Window_Loaded" Closing="Window_Closing">
+    <DockPanel Margin="12" LastChildFill="True">
+
+        <!-- 檔案 -->
+        <GroupBox DockPanel.Dock="Top" Header="檔案" Margin="0,0,0,8" Padding="6">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="32"/>
+                    <RowDefinition Height="6"/>
+                    <RowDefinition Height="32"/>
+                </Grid.RowDefinitions>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="72"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <Label Grid.Row="0" Grid.Column="0" Content="輸入檔案" VerticalAlignment="Center"/>
+                <TextBox Grid.Row="0" Grid.Column="1" x:Name="FilePathBox" IsReadOnly="True"
+                         VerticalContentAlignment="Center" Margin="0,0,6,0"/>
+                <Button Grid.Row="0" Grid.Column="2" Content="瀏覽..." Width="72"
+                        Click="BrowseFile_Click"/>
+
+                <Label Grid.Row="2" Grid.Column="0" Content="輸出資料夾" VerticalAlignment="Center"/>
+                <TextBox Grid.Row="2" Grid.Column="1" x:Name="OutputDirBox" IsReadOnly="True"
+                         VerticalContentAlignment="Center" Margin="0,0,6,0" Foreground="Gray"/>
+                <Button Grid.Row="2" Grid.Column="2" Content="瀏覽..." Width="72" Margin="0,0,4,0"
+                        Click="BrowseOutputDir_Click"/>
+                <Button Grid.Row="2" Grid.Column="3" Content="清除" Width="42"
+                        Click="ClearOutputDir_Click"/>
+            </Grid>
+        </GroupBox>
+
+        <!-- 轉錄設定 -->
+        <GroupBox DockPanel.Dock="Top" Header="轉錄設定" Margin="0,0,0,8" Padding="6">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" MinWidth="55"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto" MinWidth="55"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="34"/>
+                    <RowDefinition Height="34"/>
+                    <RowDefinition Height="34"/>
+                    <RowDefinition Height="34"/>
+                    <RowDefinition Height="34"/>
+                    <RowDefinition Height="34"/>
+                    <RowDefinition Height="34"/>
+                    <RowDefinition Height="34"/>
+                </Grid.RowDefinitions>
+
+                <!-- Row 0: 模型 / 語言 -->
+                <Label Grid.Row="0" Grid.Column="0" Content="模型" VerticalAlignment="Center"/>
+                <ComboBox Grid.Row="0" Grid.Column="1" x:Name="ModelCombo" Margin="0,4,10,4"
+                          SelectionChanged="ModelCombo_SelectionChanged">
+                    <ComboBoxItem>tiny</ComboBoxItem>
+                    <ComboBoxItem>base</ComboBoxItem>
+                    <ComboBoxItem>small</ComboBoxItem>
+                    <ComboBoxItem>medium</ComboBoxItem>
+                    <ComboBoxItem>large-v1</ComboBoxItem>
+                    <ComboBoxItem>large-v2</ComboBoxItem>
+                    <ComboBoxItem IsSelected="True">large-v3</ComboBoxItem>
+                    <ComboBoxItem>distil-large-v3</ComboBoxItem>
+                </ComboBox>
+                <Label Grid.Row="0" Grid.Column="2" Content="語言" VerticalAlignment="Center"/>
+                <ComboBox Grid.Row="0" Grid.Column="3" x:Name="LanguageCombo" Margin="0,4,0,4">
+                    <ComboBoxItem Tag="">auto（自動偵測）</ComboBoxItem>
+                    <ComboBoxItem Tag="ja" IsSelected="True">ja（日文）</ComboBoxItem>
+                    <ComboBoxItem Tag="zh">zh（中文）</ComboBoxItem>
+                    <ComboBoxItem Tag="en">en（英文）</ComboBoxItem>
+                    <ComboBoxItem Tag="ko">ko（韓文）</ComboBoxItem>
+                </ComboBox>
+
+                <!-- Row 1: 裝置 / 精度 -->
+                <Label Grid.Row="1" Grid.Column="0" Content="裝置" VerticalAlignment="Center"/>
+                <ComboBox Grid.Row="1" Grid.Column="1" x:Name="DeviceCombo" Margin="0,4,10,4"
+                          SelectionChanged="DeviceCombo_SelectionChanged">
+                    <ComboBoxItem Tag="cuda" IsSelected="True">cuda（GPU）</ComboBoxItem>
+                    <ComboBoxItem Tag="cpu">cpu</ComboBoxItem>
+                </ComboBox>
+                <Label Grid.Row="1" Grid.Column="2" Content="精度" VerticalAlignment="Center"/>
+                <ComboBox Grid.Row="1" Grid.Column="3" x:Name="ComputeTypeCombo" Margin="0,4,0,4">
+                    <ComboBoxItem Tag="float16" IsSelected="True">float16</ComboBoxItem>
+                    <ComboBoxItem Tag="float32">float32</ComboBoxItem>
+                    <ComboBoxItem Tag="int8">int8</ComboBoxItem>
+                </ComboBox>
+
+                <!-- Row 2: 初始提示 / 合併 -->
+                <Label Grid.Row="2" Grid.Column="0" Content="提示" VerticalAlignment="Center"/>
+                <TextBox Grid.Row="2" Grid.Column="1" x:Name="PromptBox" Margin="0,4,10,4"
+                         Text="以下是日文的ASMR" VerticalContentAlignment="Center"/>
+                <CheckBox Grid.Row="2" Grid.Column="2" Grid.ColumnSpan="2"
+                          x:Name="MergeCheck" Content="合併相似字幕段落"
+                          VerticalAlignment="Center" Margin="4,0,0,0"/>
+
+                <!-- Row 3: Beam Size / VAD -->
+                <Label Grid.Row="3" Grid.Column="0" Content="Beam" VerticalAlignment="Center"/>
+                <Grid Grid.Row="3" Grid.Column="1" Margin="0,6,10,6">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="26"/>
+                    </Grid.ColumnDefinitions>
+                    <Slider Grid.Column="0" x:Name="BeamSizeSlider"
+                            Minimum="1" Maximum="10" Value="5"
+                            IsSnapToTickEnabled="True" TickFrequency="1"
+                            VerticalAlignment="Center"/>
+                    <TextBlock Grid.Column="1"
+                               Text="{Binding ElementName=BeamSizeSlider, Path=Value, StringFormat={}{0:F0}}"
+                               VerticalAlignment="Center" HorizontalAlignment="Center"
+                               FontWeight="SemiBold"/>
+                </Grid>
+                <CheckBox Grid.Row="3" Grid.Column="2" Grid.ColumnSpan="2"
+                          x:Name="VadCheck" Content="VAD 靜音過濾"
+                          VerticalAlignment="Center" Margin="4,0,0,0"/>
+
+                <!-- Row 4: 翻譯 -->
+                <Label Grid.Row="4" Grid.Column="0" Content="翻譯" VerticalAlignment="Center"/>
+                <Grid Grid.Row="4" Grid.Column="1" Margin="0,4,10,4">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <CheckBox Grid.Column="0" x:Name="TranslateCheck" VerticalAlignment="Center"
+                              Checked="TranslateCheck_Changed" Unchecked="TranslateCheck_Changed"/>
+                    <ComboBox Grid.Column="1" x:Name="TranslateLangCombo"
+                              Margin="6,0,0,0" IsEnabled="False">
+                        <ComboBoxItem Tag="zh-TW" IsSelected="True">zh-TW（繁體中文）</ComboBoxItem>
+                        <ComboBoxItem Tag="zh-CN">zh-CN（簡體中文）</ComboBoxItem>
+                        <ComboBoxItem Tag="en">en（英文）</ComboBoxItem>
+                        <ComboBoxItem Tag="ko">ko（韓文）</ComboBoxItem>
+                        <ComboBoxItem Tag="ja">ja（日文）</ComboBoxItem>
+                    </ComboBox>
+                </Grid>
+
+                <!-- Row 5: 翻譯後端 + API Key -->
+                <Label Grid.Row="5" Grid.Column="0" Content="後端" VerticalAlignment="Center"/>
+                <ComboBox Grid.Row="5" Grid.Column="1" x:Name="TranslateBackendCombo"
+                          Margin="0,4,10,4" IsEnabled="False"
+                          SelectionChanged="TranslateBackendCombo_SelectionChanged">
+                    <ComboBoxItem Tag="googletrans" IsSelected="True">googletrans（免費）</ComboBoxItem>
+                    <ComboBoxItem Tag="gemini-flash">Gemini 2.5 Flash（免費額度）</ComboBoxItem>
+                    <ComboBoxItem Tag="claude-cli">Claude CLI（需訂閱）</ComboBoxItem>
+                    <ComboBoxItem Tag="claude-haiku">Claude Haiku API（需 Key）</ComboBoxItem>
+                    <ComboBoxItem Tag="claude-sonnet">Claude Sonnet API（需 Key）</ComboBoxItem>
+                </ComboBox>
+                <!-- Row 6: 聲道 -->
+                <Label Grid.Row="6" Grid.Column="0" Content="聲道" VerticalAlignment="Center"
+                       ToolTip="Binaural ASMR 可分離左右聲道分別輸出 SRT"/>
+                <ComboBox Grid.Row="6" Grid.Column="1" Grid.ColumnSpan="3"
+                          x:Name="ChannelCombo" Margin="0,4,0,4">
+                    <ComboBoxItem Tag="mix" IsSelected="True">混合（預設，左右合併）</ComboBoxItem>
+                    <ComboBoxItem Tag="left">左聲道</ComboBoxItem>
+                    <ComboBoxItem Tag="right">右聲道</ComboBoxItem>
+                    <ComboBoxItem Tag="split">分離聲道（輸出 _L.srt + _R.srt）</ComboBoxItem>
+                </ComboBox>
+
+                <Label Grid.Row="5" Grid.Column="2" x:Name="ApiKeyLabel"
+                       Content="API Key" VerticalAlignment="Center" Visibility="Collapsed"/>
+                <TextBox Grid.Row="5" Grid.Column="3" x:Name="ClaudeApiKeyBox"
+                         Margin="0,4,0,4" VerticalContentAlignment="Center"
+                         Visibility="Collapsed"
+                         ToolTip="貼上 Anthropic API Key（以 sk-ant- 開頭）"/>
+
+                <!-- Row 7: 翻譯提示 -->
+                <Label Grid.Row="7" Grid.Column="0" Content="翻譯提示" VerticalAlignment="Center"/>
+                <TextBox Grid.Row="7" Grid.Column="1" Grid.ColumnSpan="3"
+                         x:Name="TranslatePromptBox" Margin="0,4,0,4"
+                         VerticalContentAlignment="Center" IsEnabled="False"
+                         Text="日文 ASMR 字幕，保持自然、輕柔、親密的口語語氣，符合 ASMR 風格"
+                         ToolTip="翻譯時傳給 LLM 的風格指引（僅 LLM 後端有效，googletrans 忽略）"/>
+
+            </Grid>
+        </GroupBox>
+
+        <!-- 進度列 + 按鈕 -->
+        <Grid DockPanel.Dock="Top" Margin="0,0,0,4">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+            <ProgressBar Grid.Column="0" x:Name="ProgressBar" Height="28" Margin="0,0,8,0"/>
+            <Button Grid.Column="1" x:Name="StartButton" Content="開始轉錄"
+                    Width="92" Height="28" Margin="0,0,6,0" Click="StartTranscription_Click"/>
+            <Button Grid.Column="2" x:Name="StopButton" Content="停止"
+                    Width="60" Height="28" IsEnabled="False" Click="StopTranscription_Click"/>
+        </Grid>
+
+        <!-- 狀態 + 操作按鈕 -->
+        <Grid DockPanel.Dock="Top" Margin="0,0,0,8">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+            <TextBlock Grid.Column="0" x:Name="StatusText" Text="就緒"
+                       Foreground="Gray" VerticalAlignment="Center"/>
+            <Button Grid.Column="1" x:Name="OpenSrtButton" Content="Subtitle Edit"
+                    Padding="10,2" Margin="0,0,6,0" Visibility="Collapsed"
+                    Click="OpenSrtButton_Click"/>
+            <Button Grid.Column="2" x:Name="PlayButton" Content="播放"
+                    Padding="10,2" Visibility="Collapsed"
+                    Click="PlayButton_Click"/>
+        </Grid>
+
+        <!-- 轉錄記錄 -->
+        <GroupBox Header="轉錄記錄" Padding="4">
+            <TextBox x:Name="LogBox" IsReadOnly="True" TextWrapping="Wrap"
+                     VerticalScrollBarVisibility="Auto"
+                     FontFamily="Consolas" FontSize="12"
+                     Background="#F8F8F8"/>
+        </GroupBox>
+
+    </DockPanel>
+</Window>

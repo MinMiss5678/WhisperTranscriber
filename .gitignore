@@ -1,0 +1,16 @@
+# Python
+venv/
+__pycache__/
+*.pyc
+
+# .NET build output
+WhisperGUI/bin/
+WhisperGUI/obj/
+
+# Audio / subtitle files
+audio_files/
+
+# IDE
+.idea/
+.vs/
+*.user
