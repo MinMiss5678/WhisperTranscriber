@@ -1,0 +1,5 @@
+# Windows batch files must use CRLF or CMD misparses them
+*.bat   text eol=crlf
+
+# Default: normalize to LF in repo, checkout as-is on each OS
+*       text=auto
