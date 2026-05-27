@@ -1,0 +1,50 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Publish WhisperGUI
+        run: |
+          dotnet publish WhisperGUI/WhisperGUI.csproj `
+            -c Release `
+            -r win-x64 `
+            --self-contained false `
+            -o dist/WhisperGUI
+
+      - name: Assemble release package
+        run: |
+          $version = "${{ github.ref_name }}"
+          $pkg = "dist/WhisperTranscriber-$version"
+          New-Item -ItemType Directory -Path $pkg | Out-Null
+
+          # GUI 執行檔
+          Copy-Item dist/WhisperGUI/* $pkg/ -Recurse
+
+          # Python 腳本與相關檔案
+          Copy-Item WhisperTranscriber.py  $pkg/
+          Copy-Item requirements.txt       $pkg/
+          Copy-Item setup.bat              $pkg/
+          Copy-Item "使用說明.txt"          $pkg/
+
+          # 壓縮
+          Compress-Archive -Path "$pkg/*" -DestinationPath "dist/WhisperTranscriber-$version.zip"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/WhisperTranscriber-${{ github.ref_name }}.zip
+          generate_release_notes: true
