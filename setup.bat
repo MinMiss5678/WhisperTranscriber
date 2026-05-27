@@ -49,6 +49,7 @@ if not exist venv (
 :: ── pip install ──────────────────────────────────────────
 echo 安裝 Python 套件...
 venv\Scripts\python.exe -m pip install --upgrade pip --quiet
+venv\Scripts\python.exe -m pip install setuptools --quiet
 venv\Scripts\python.exe -m pip install -r requirements.txt
 if errorlevel 1 (
     echo 錯誤：套件安裝失敗
