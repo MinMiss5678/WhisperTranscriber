@@ -44,10 +44,10 @@ jobs:
           Copy-Item "使用說明.txt"          $pkg/
 
           # 壓縮
-          Compress-Archive -Path "$pkg/*" -DestinationPath "dist/WhisperTranscriber-$version.zip"
+          7z a "dist/WhisperTranscriber-$version.7z" "$pkg/*"
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          files: dist/WhisperTranscriber-${{ github.ref_name }}.zip
+          files: dist/WhisperTranscriber-${{ github.ref_name }}.7z
           generate_release_notes: true
