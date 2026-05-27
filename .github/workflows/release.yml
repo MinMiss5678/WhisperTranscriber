@@ -44,7 +44,9 @@ jobs:
           Copy-Item "使用說明.txt"          $pkg/
 
           # 壓縮
-          7z a "dist/WhisperTranscriber-$version.7z" "$pkg/*"
+          Push-Location dist
+          7z a "WhisperTranscriber-$version.7z" "WhisperTranscriber-$version"
+          Pop-Location
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
