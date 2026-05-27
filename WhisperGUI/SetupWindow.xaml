@@ -1,0 +1,29 @@
+<Window x:Class="WhisperGUI.SetupWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="首次安裝環境" Width="560" Height="420"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="NoResize" ShowInTaskbar="False">
+    <DockPanel Margin="14">
+
+        <TextBlock DockPanel.Dock="Top"
+                   Text="首次使用，正在自動安裝所需環境，請稍候..."
+                   FontSize="13" FontWeight="SemiBold" Margin="0,0,0,10"/>
+
+        <Grid DockPanel.Dock="Bottom" Margin="0,10,0,0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+            <ProgressBar x:Name="SetupProgress" Height="22" IsIndeterminate="True"/>
+            <Button Grid.Column="1" x:Name="CloseButton"
+                    Content="完成" Width="80" Margin="10,0,0,0"
+                    IsEnabled="False" Click="CloseButton_Click"/>
+        </Grid>
+
+        <TextBox x:Name="SetupLog" IsReadOnly="True" TextWrapping="Wrap"
+                 VerticalScrollBarVisibility="Auto"
+                 FontFamily="Consolas" FontSize="11"
+                 Background="#F5F5F5" Padding="6"/>
+    </DockPanel>
+</Window>

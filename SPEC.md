@@ -7,12 +7,12 @@ WhisperGUI.exe  (WPF, .NET 10)
       │
       │  subprocess (stdin/stdout/stderr)
       ▼
-whisper-transcriber.py  (Python, venv)
+WhisperTranscriber.py  (Python, venv)
       │
       ├── faster-whisper   (轉錄)
       ├── av               (聲道抽取)
       ├── sentence-transformers  (字幕合併)
-      └── googletrans / anthropic  (翻譯)
+      └── googletrans / anthropic / google-genai  (翻譯)
 ```
 
 GUI 不直接操作 Python 函式庫，全部透過 subprocess 呼叫 Python 腳本。兩端透過 stdout 協定溝通。
@@ -98,9 +98,13 @@ Python 腳本輸出兩類訊息：**控制訊息**與**日誌訊息**。
 | `た\d+` | `た20` 類數字計數器幻覺 |
 | `[-ɏ]` | Latin Extended 字元（如土耳其語無點 i） |
 
+### `_get_sentence_model()`
+
+Module-level lazy singleton，首次呼叫時載入 `sonoisa/sentence-bert-base-ja-mean-tokens-v2`，後續呼叫回傳快取實例。`split` 模式下左右聲道各呼叫一次 `merged_segments_with_model()`，模型只載入一次。
+
 ### `merged_segments_with_model(segments)`
 
-使用 `sonoisa/sentence-bert-base-ja-mean-tokens-v2` 計算餘弦相似度，逐對比較相鄰段落。
+**僅支援日文**（模型為日文專用 BERT）。使用 `_get_sentence_model()` 計算餘弦相似度，逐對比較相鄰段落。
 
 合併條件（全部成立才合併）：
 
@@ -113,7 +117,7 @@ Python 腳本輸出兩類訊息：**控制訊息**與**日誌訊息**。
 | 合併後總字元數 | ≤ 45 |
 | 單段時長（pre-check） | ≤ 6.0 秒，否則直接輸出不合併 |
 
-### `translate_segments(segments, target_lang, backend, claude_api_key)`
+### `translate_segments(segments, target_lang, backend, claude_api_key, gemini_api_key, translate_prompt)`
 
 | Backend | 實作 | 備註 |
 |---|---|---|
@@ -124,6 +128,8 @@ Python 腳本輸出兩類訊息：**控制訊息**與**日誌訊息**。
 | `gemini-flash` | Google GenAI SDK，`gemini-2.5-flash` | 每批 150 段；有免費額度（10 RPM / 1,500 RPD） |
 
 翻譯結果寫入 `seg['translation']`，原文 `seg['text']` 不變。
+
+`translate_prompt` 為風格提示詞，附加在系統 prompt 末尾。預設值 `日文 ASMR 字幕，保持自然、輕柔、親密的口語語氣，符合 ASMR 風格`；空字串則省略。對 `googletrans` 後端無效。
 
 **自動 Fallback**：LLM 後端（claude-haiku/sonnet/cli、gemini-flash）若拋例外或回傳段數不符，自動改用 googletrans 補翻該批，並在 log 輸出：
 ```
@@ -136,7 +142,7 @@ Python 腳本輸出兩類訊息：**控制訊息**與**日誌訊息**。
 | 情境 | 輸出內容 |
 |---|---|
 | 無翻譯 | 原文 |
-| 有翻譯，`review=False` | 譯文（雙行合併條目輸出譯文） |
+| 有翻譯，`review=False` | 譯文 |
 | 有翻譯，`review=True` | 原文 + 譯文（雙行） |
 
 ### `_pair_channels(segs)`
@@ -152,7 +158,7 @@ Python 腳本輸出兩類訊息：**控制訊息**與**日誌訊息**。
 ```csharp
 RepoRoot = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, @"..\..\..\.."));
 pythonExe  = Path.Combine(RepoRoot, "venv", "Scripts", "python.exe");
-scriptPath = Path.Combine(RepoRoot, "whisper-transcriber.py");
+scriptPath = Path.Combine(RepoRoot, "WhisperTranscriber.py");
 ```
 
 `AppContext.BaseDirectory` 在開發時為 `bin\Debug\net10.0-windows\`，四層上去即 repo 根目錄。
@@ -161,9 +167,29 @@ scriptPath = Path.Combine(RepoRoot, "whisper-transcriber.py");
 
 路徑：`%AppData%\WhisperGUI\settings.json`
 
-儲存欄位：Model、Language、Device、ComputeType、InitialPrompt、Merge、VadFilter、BeamSize、Translate、TranslateLang、TranslateBackend、ClaudeApiKey、Channel、OutputDir、LastFile。
+儲存欄位：Model、Language、Device、ComputeType、InitialPrompt、Merge、VadFilter、Translate、TranslateLang、TranslateBackend、ClaudeApiKey、TranslatePrompt、Channel、OutputDir、LastFile。
+
+`BeamSize` 已從 GUI 移除，固定傳 `--beam-size 5`；CLI 仍可覆蓋。
+
+`ClaudeApiKey` 欄位同時用於 Gemini Key：backend 為 `gemini-flash` 時，GUI 以 `--gemini-api-key` 傳入相同值；`AppSettings` 中無獨立 Gemini 欄位。
 
 視窗關閉時寫入，載入時讀取。讀取失敗（格式錯誤、不存在）靜默忽略。
+
+### 首次設定精靈（SetupWindow）
+
+`Window_Loaded` 偵測 `venv/Scripts/python.exe` 是否存在：
+- 存在 → 正常啟動
+- 不存在 → 以 `Owner = this` 開啟 `SetupWindow`（modal）
+
+`SetupWindow` 執行 `setup.bat /nopause`，串流 stdout/stderr 至 log box，完成後啟用「完成」按鈕。`setup.bat` 支援 `/nopause` 參數略過 `pause` 指令（供 GUI 呼叫）。
+
+`MODEL_LOADING:` 計時器超過 30 秒時，StatusText 加注「首次執行需下載模型約 3 GB，請耐心等候」提示。
+
+### 語言限制合併
+
+`LanguageCombo_SelectionChanged` 在語言切換時更新 `MergeCheck`：
+- `ja` → `IsEnabled = true`
+- 其他（含 auto）→ `IsChecked = false`、`IsEnabled = false`、`ToolTip = "語意合併僅支援日文"`
 
 ### 非同步執行模型
 
@@ -179,10 +205,11 @@ stdout/stderr 各由獨立 `ConsumeStreamAsync` 讀取（避免死鎖）。Proce
 
 ### 新增翻譯後端
 
-1. `whisper-transcriber.py`：`--translate-backend` choices 加入新值，`translate_segments()` 加 `if backend == '...'` 分支
+1. `WhisperTranscriber.py`：`--translate-backend` choices 加入新值，`translate_segments()` 加 `if backend == '...'` 分支（接收 `translate_prompt` 並傳入後端函式）
 2. `MainWindow.xaml`：`TranslateBackendCombo` 加 `<ComboBoxItem Tag="...">`
-3. `UpdateApiKeyVisibility()`：視需要調整 API Key 顯示邏輯
-4. `AppSettings`：`TranslateBackend` 預設值視需要調整
+3. `UpdateApiKeyVisibility()`：視需要調整 API Key 顯示邏輯（label 文字、`ClaudeApiKeyBox` visibility）
+4. `RunTranscription`：若新後端使用不同 API Key 參數名，在 `sb.Append` 區塊加對應 `--xxx-api-key` 分支
+5. `AppSettings`：`TranslateBackend` 預設值視需要調整
 
 ### 新增 stdout 控制訊息
 

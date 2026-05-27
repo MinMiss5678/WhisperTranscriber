@@ -55,7 +55,6 @@
                     <RowDefinition Height="34"/>
                     <RowDefinition Height="34"/>
                     <RowDefinition Height="34"/>
-                    <RowDefinition Height="34"/>
                 </Grid.RowDefinitions>
 
                 <!-- Row 0: 模型 / 語言 -->
@@ -72,7 +71,8 @@
                     <ComboBoxItem>distil-large-v3</ComboBoxItem>
                 </ComboBox>
                 <Label Grid.Row="0" Grid.Column="2" Content="語言" VerticalAlignment="Center"/>
-                <ComboBox Grid.Row="0" Grid.Column="3" x:Name="LanguageCombo" Margin="0,4,0,4">
+                <ComboBox Grid.Row="0" Grid.Column="3" x:Name="LanguageCombo" Margin="0,4,0,4"
+                          SelectionChanged="LanguageCombo_SelectionChanged">
                     <ComboBoxItem Tag="">auto（自動偵測）</ComboBoxItem>
                     <ComboBoxItem Tag="ja" IsSelected="True">ja（日文）</ComboBoxItem>
                     <ComboBoxItem Tag="zh">zh（中文）</ComboBoxItem>
@@ -102,23 +102,8 @@
                           x:Name="MergeCheck" Content="合併相似字幕段落"
                           VerticalAlignment="Center" Margin="4,0,0,0"/>
 
-                <!-- Row 3: Beam Size / VAD -->
-                <Label Grid.Row="3" Grid.Column="0" Content="Beam" VerticalAlignment="Center"/>
-                <Grid Grid.Row="3" Grid.Column="1" Margin="0,6,10,6">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*"/>
-                        <ColumnDefinition Width="26"/>
-                    </Grid.ColumnDefinitions>
-                    <Slider Grid.Column="0" x:Name="BeamSizeSlider"
-                            Minimum="1" Maximum="10" Value="5"
-                            IsSnapToTickEnabled="True" TickFrequency="1"
-                            VerticalAlignment="Center"/>
-                    <TextBlock Grid.Column="1"
-                               Text="{Binding ElementName=BeamSizeSlider, Path=Value, StringFormat={}{0:F0}}"
-                               VerticalAlignment="Center" HorizontalAlignment="Center"
-                               FontWeight="SemiBold"/>
-                </Grid>
-                <CheckBox Grid.Row="3" Grid.Column="2" Grid.ColumnSpan="2"
+                <!-- Row 3: VAD -->
+                <CheckBox Grid.Row="3" Grid.Column="0" Grid.ColumnSpan="4"
                           x:Name="VadCheck" Content="VAD 靜音過濾"
                           VerticalAlignment="Center" Margin="4,0,0,0"/>
 

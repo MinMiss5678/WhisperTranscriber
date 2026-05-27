@@ -2,15 +2,26 @@
 venv/
 __pycache__/
 *.pyc
+*.pyo
 
 # .NET build output
 WhisperGUI/bin/
 WhisperGUI/obj/
 
-# Audio / subtitle files
+# 音訊與字幕（本地測試用，不入 repo）
 audio_files/
+*.srt
+*.wav
+
+# 發布暫存
+dist/
 
 # IDE
 .idea/
 .vs/
 *.user
+*.suo
+
+# OS
+.DS_Store
+Thumbs.db

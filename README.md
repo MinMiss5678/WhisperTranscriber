@@ -20,14 +20,13 @@
 
 ## 安裝
 
-```bash
-# 建立虛擬環境
-python -m venv venv
-source venv/Scripts/activate   # Windows bash
-# .\venv\Scripts\Activate.ps1  # PowerShell
+雙擊 `setup.bat`，自動完成所有安裝步驟：
 
-pip install -r requirements.txt
-```
+- Python 3.12（未安裝時透過 winget 自動下載）
+- .NET 10 Runtime（未安裝時透過 winget 自動下載）
+- Python 虛擬環境與所有套件
+
+Windows 10 / 11 內建 winget，無需其他前置作業。
 
 首次執行會自動從 HuggingFace Hub 下載模型（large-v3 約 3 GB）。
 
@@ -45,20 +44,20 @@ pip install -r requirements.txt
 source venv/Scripts/activate
 
 # 基本轉錄（日文）
-python whisper-transcriber.py --file audio_files/input.mp3 --language ja
+python WhisperTranscriber.py --file audio_files/input.mp3 --language ja
 
 # 翻譯為繁體中文（免費）
-python whisper-transcriber.py --file input.mp4 --language ja --translate --translate-lang zh-TW
+python WhisperTranscriber.py --file input.mp4 --language ja --translate --translate-lang zh-TW
 
 # 使用 Claude API 翻譯
-python whisper-transcriber.py --file input.mp4 --language ja \
+python WhisperTranscriber.py --file input.mp4 --language ja \
   --translate --translate-backend claude-haiku --claude-api-key sk-ant-...
 
 # 雙聲道分離（Binaural ASMR）
-python whisper-transcriber.py --file input.mp4 --language ja --channel split --translate
+python WhisperTranscriber.py --file input.mp4 --language ja --channel split --translate
 
 # CPU 模式
-python whisper-transcriber.py --file input.mp3 --device cpu --compute-type int8
+python WhisperTranscriber.py --file input.mp3 --device cpu --compute-type int8
 ```
 
 ### CLI 參數一覽
@@ -81,14 +80,15 @@ python whisper-transcriber.py --file input.mp3 --device cpu --compute-type int8
 | `--translate-backend` | `googletrans` | `googletrans`、`claude-cli`、`claude-haiku`、`claude-sonnet`、`gemini-flash` |
 | `--claude-api-key` | | Anthropic API Key（claude-haiku/sonnet 需要） |
 | `--gemini-api-key` | | Google API Key（gemini-flash 需要，Google AI Studio 申請，有免費額度） |
+| `--translate-prompt` | `日文 ASMR 字幕...` | LLM 翻譯風格提示詞（claude-haiku/sonnet/cli/gemini-flash 有效） |
 
 ## 輸出檔案
 
 | 情境 | 輸出檔案 |
 |---|---|
 | 一般轉錄 | `<input>.srt` |
-| 翻譯 | `<input>.srt`（譯文）、`<input>_review.srt`（原文+譯文） |
-| 雙聲道分離 | `<input>_merged.srt`、`<input>_merged_review.srt` |
+| 翻譯 | `<input>.srt`（純譯文）、`<input>_review.srt`（原文+譯文） |
+| 雙聲道分離 | 同上 |
 
 ## 字幕合併條件（`--merge`）
 
@@ -99,3 +99,7 @@ python whisper-transcriber.py --file input.mp3 --device cpu --compute-type int8
 - 合併後顯示時長 1.0–6.0 秒
 - 合併後字元顯示速率 ≤ 15 字/秒
 - 合併後總字元數 ≤ 45
+
+## 授權
+
+本專案採用 [GNU GPL v3](LICENSE) 授權。商業分發須附原始碼。

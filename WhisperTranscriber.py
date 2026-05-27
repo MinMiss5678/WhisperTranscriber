@@ -305,10 +305,19 @@ def _translate_with_gemini(segments, target_lang, api_key, translate_prompt=''):
     return segments
 
 
+_sentence_model = None
+
+def _get_sentence_model():
+    global _sentence_model
+    if _sentence_model is None:
+        _sentence_model = SentenceTransformer('sonoisa/sentence-bert-base-ja-mean-tokens-v2')
+    return _sentence_model
+
+
 def merged_segments_with_model(segments):
     merged = []
     prev = None
-    sentence_model = SentenceTransformer('sonoisa/sentence-bert-base-ja-mean-tokens-v2')
+    sentence_model = _get_sentence_model()
     similarity_threshold = 0.7
     min_display_duration = 1.0
     max_duration = 6.0
@@ -520,9 +529,6 @@ if __name__ == '__main__':
     t0 = time.time()
 
     if args.channel == 'split':
-        base, ext = os.path.splitext(output_file)
-        merged_out = base + '_merged' + ext
-
         all_segs = []
         for ch, prefix in (('left', '[L]'), ('right', '[R]')):
             label = '左聲道' if ch == 'left' else '右聲道'
@@ -563,10 +569,10 @@ if __name__ == '__main__':
                 seg['translation'] = f"{p} {seg['translation'].strip()}"
 
         all_segs = _pair_channels(all_segs)
-        write_srt_file(merged_out, all_segs)
-        print(f"SRT:{merged_out}", flush=True)
+        write_srt_file(output_file, all_segs)
+        print(f"SRT:{output_file}", flush=True)
         if args.translate:
-            base, ext = os.path.splitext(merged_out)
+            base, ext = os.path.splitext(output_file)
             review_out = base + '_review' + ext
             write_srt_file(review_out, all_segs, review=True)
             print(f"SRT_REVIEW:{review_out}", flush=True)

@@ -9,23 +9,23 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 source venv/Scripts/activate
 
 # Run the transcription (requires --file argument)
-python whisper-transcriber.py --file audio_files/input.mp3
+python WhisperTranscriber.py --file audio_files/input.mp3
 ```
 
 No build system or test suite exists.
 
 ## Project Structure
 
-- `whisper-transcriber.py` — main CLI script
+- `WhisperTranscriber.py` — main CLI script
 - `WhisperGUI/` — WPF GUI frontend (C#) that spawns the Python script as a subprocess
 
 ## Dependencies
 
-There is no `requirements.txt`. All packages are installed directly into `venv/`. Key packages: `faster-whisper`, `torch`, `sentence-transformers`, `ctranslate2`, `av`, `googletrans`, `anthropic`. Install new packages with `pip install <package>` while the venv is active.
+Dependencies are listed in `requirements.txt`. Install with `pip install -r requirements.txt` while the venv is active. Key packages: `faster-whisper`, `torch`, `sentence-transformers`, `ctranslate2`, `av`, `googletrans`, `anthropic`, `google-genai`. Install new packages with `pip install <package>` then update `requirements.txt`.
 
 ## Architecture
 
-### CLI script: `whisper-transcriber.py`
+### CLI script: `WhisperTranscriber.py`
 
 Accepts argparse arguments. The pipeline is:
 
@@ -38,7 +38,7 @@ Accepts argparse arguments. The pipeline is:
 
 ### GUI: `WhisperGUI/`
 
-WPF app (C#, .NET). Locates `venv/Scripts/python.exe` relative to `AppContext.BaseDirectory` (4 levels up). Spawns `whisper-transcriber.py` and parses `PROGRESS:`, `TRANSLATE:`, `SRT:`, `SRT_REVIEW:`, `CHANNEL:` protocol lines from stdout.
+WPF app (C#, .NET). Locates `venv/Scripts/python.exe` relative to `AppContext.BaseDirectory` (4 levels up). Spawns `WhisperTranscriber.py` and parses `PROGRESS:`, `TRANSLATE:`, `SRT:`, `SRT_REVIEW:`, `CHANNEL:` protocol lines from stdout.
 
 Settings persisted to `%AppData%\WhisperGUI\settings.json`.
 

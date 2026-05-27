@@ -23,8 +23,16 @@ public partial class MainWindow : Window
     private DispatcherTimer? _loadingTimer;
     private DateTime _loadingStart;
 
-    private static readonly string RepoRoot = Path.GetFullPath(
-        Path.Combine(AppContext.BaseDirectory, @"..\..\..\.."));
+    private static readonly string RepoRoot = DetectRepoRoot();
+
+    private static string DetectRepoRoot()
+    {
+        // Release: EXE 與 WhisperTranscriber.py 同目錄
+        if (File.Exists(Path.Combine(AppContext.BaseDirectory, "WhisperTranscriber.py")))
+            return AppContext.BaseDirectory;
+        // Development: bin\Debug\net10.0-windows\ 往上四層
+        return Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, @"..\..\..\.."));
+    }
 
     private static readonly string SettingsPath = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
@@ -111,6 +119,13 @@ public partial class MainWindow : Window
         OutputDirBox.Text       = OutputDirPlaceholder;
         OutputDirBox.Foreground = Brushes.Gray;
         LoadSettings();
+
+        string pythonExe = Path.Combine(RepoRoot, "venv", "Scripts", "python.exe");
+        if (!File.Exists(pythonExe))
+        {
+            var setup = new SetupWindow(RepoRoot) { Owner = this };
+            setup.ShowDialog();
+        }
     }
 
     private void Window_Closing(object sender, System.ComponentModel.CancelEventArgs e)
@@ -131,7 +146,6 @@ public partial class MainWindow : Window
             PromptBox.Text        = s.InitialPrompt;
             MergeCheck.IsChecked  = s.Merge;
             VadCheck.IsChecked    = s.VadFilter;
-            BeamSizeSlider.Value  = Math.Clamp(s.BeamSize, 1, 10);
             TranslateCheck.IsChecked = s.Translate;
             SelectComboByTag(TranslateLangCombo, s.TranslateLang);
             SelectComboByTag(TranslateBackendCombo, s.TranslateBackend);
@@ -164,7 +178,6 @@ public partial class MainWindow : Window
                 InitialPrompt = PromptBox.Text,
                 Merge         = MergeCheck.IsChecked == true,
                 VadFilter     = VadCheck.IsChecked == true,
-                BeamSize      = (int)BeamSizeSlider.Value,
                 Translate        = TranslateCheck.IsChecked == true,
                 TranslateLang    = ((ComboBoxItem)TranslateLangCombo.SelectedItem).Tag?.ToString() ?? "zh-TW",
                 TranslateBackend = ((ComboBoxItem)TranslateBackendCombo.SelectedItem).Tag?.ToString() ?? "googletrans",
@@ -193,6 +206,24 @@ public partial class MainWindow : Window
     }
 
     // ── Device → auto-switch compute type ────────────────────────────────────
+
+    private void LanguageCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (MergeCheck is null) return;
+        string lang = ((ComboBoxItem)LanguageCombo.SelectedItem).Tag?.ToString() ?? "";
+        bool isJa = lang == "ja";
+        if (!isJa)
+        {
+            MergeCheck.IsChecked = false;
+            MergeCheck.IsEnabled = false;
+            MergeCheck.ToolTip   = "語意合併僅支援日文";
+        }
+        else
+        {
+            MergeCheck.IsEnabled = true;
+            MergeCheck.ToolTip   = "語意合併（僅日文有效）";
+        }
+    }
 
     private void DeviceCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
@@ -228,7 +259,7 @@ public partial class MainWindow : Window
         string prompt       = PromptBox.Text.Trim();
         bool   merge        = MergeCheck.IsChecked == true;
         bool   vad          = VadCheck.IsChecked == true;
-        int    beamSize     = (int)BeamSizeSlider.Value;
+        const int beamSize  = 5;
         bool   translate     = TranslateCheck.IsChecked == true;
         string translateLang = ((ComboBoxItem)TranslateLangCombo.SelectedItem).Tag?.ToString() ?? "zh-TW";
         string translateBackend = ((ComboBoxItem)TranslateBackendCombo.SelectedItem).Tag?.ToString() ?? "googletrans";
@@ -329,7 +360,7 @@ public partial class MainWindow : Window
         string translatePrompt, string channel, CancellationToken ct)
     {
         string pythonExe  = Path.Combine(RepoRoot, "venv", "Scripts", "python.exe");
-        string scriptPath = Path.Combine(RepoRoot, "whisper-transcriber.py");
+        string scriptPath = Path.Combine(RepoRoot, "WhisperTranscriber.py");
 
         if (!File.Exists(pythonExe))
         {
@@ -441,7 +472,8 @@ public partial class MainWindow : Window
                     _loadingTimer.Tick += (_, _) =>
                     {
                         int elapsed = (int)(DateTime.Now - _loadingStart).TotalSeconds;
-                        StatusText.Text      = $"載入 {modelName} 模型中… {elapsed} 秒";
+                        string hint = elapsed > 30 ? "  （首次執行需下載模型約 3 GB，請耐心等候）" : "";
+                        StatusText.Text      = $"載入 {modelName} 模型中… {elapsed} 秒{hint}";
                         StatusText.Foreground = Brushes.Gray;
                     };
                     _loadingTimer.Start();
@@ -556,7 +588,6 @@ file sealed class AppSettings
     public string InitialPrompt { get; set; } = "以下是日文的ASMR";
     public bool   Merge         { get; set; } = false;
     public bool   VadFilter     { get; set; } = false;
-    public int    BeamSize      { get; set; } = 5;
     public bool   Translate     { get; set; } = false;
     public string TranslateLang    { get; set; } = "zh-TW";
     public string TranslateBackend { get; set; } = "googletrans";
