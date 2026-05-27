@@ -6,12 +6,6 @@ import time
 
 sys.stdout.reconfigure(encoding='utf-8')
 
-try:
-    import pkg_resources  # noqa: F401
-except ImportError:
-    import subprocess
-    subprocess.check_call([sys.executable, '-m', 'pip', 'install', 'setuptools', '-q'])
-
 from faster_whisper import WhisperModel
 from sentence_transformers import SentenceTransformer
 from sklearn.metrics.pairwise import cosine_similarity
