@@ -16,7 +16,7 @@ def parse_args():
     parser.add_argument('--model', default='large-v3',
                         choices=['tiny', 'base', 'small', 'medium',
                                  'large-v1', 'large-v2', 'large-v3', 'distil-large-v3'])
-    parser.add_argument('--file', required=True)
+    parser.add_argument('--file', required=True, nargs='+')
     parser.add_argument('--output', default=None)
     parser.add_argument('--language', default=None)
     parser.add_argument('--device', default='cuda', choices=['cuda', 'cpu'])
@@ -513,28 +513,14 @@ def _pair_channels(segs):
     return result
 
 
-if __name__ == '__main__':
-    args = parse_args()
-
-    output_file = args.output or (os.path.splitext(args.file)[0] + ".srt")
-
-    print(f"MODEL_LOADING:{args.model}", flush=True)
-    print(f"載入 {args.model} 模型...", flush=True)
-    t0 = time.time()
-    model = WhisperModel(args.model, device=args.device, compute_type=args.compute_type)
-    load_secs = time.time() - t0
-    print(f"MODEL_LOADED:{load_secs:.1f}", flush=True)
-    print(f"模型載入完成，耗時 {int(load_secs // 60)} 分 {int(load_secs % 60)} 秒", flush=True)
-
-    t0 = time.time()
-
+def _process_single_file(input_file, output_file, model, args):
     if args.channel == 'split':
         all_segs = []
         for ch, prefix in (('left', '[L]'), ('right', '[R]')):
             label = '左聲道' if ch == 'left' else '右聲道'
             print(f"CHANNEL:{ch}", flush=True)
             print(f"--- 開始轉錄 {label} ---", flush=True)
-            tmp = _extract_channel(args.file, ch)
+            tmp = _extract_channel(input_file, ch)
             try:
                 extracted = _transcribe_file(tmp, model, args)
             finally:
@@ -546,10 +532,8 @@ if __name__ == '__main__':
                 tagged = dict(seg)
                 tagged['_ch']     = ch
                 tagged['_prefix'] = prefix
-                # text 保持乾淨原文，前綴翻譯後才加
                 all_segs.append(tagged)
 
-        # 合流 → 排序 → 統一翻譯（送入乾淨原文，無前綴）
         all_segs.sort(key=lambda s: s['start'])
         if args.translate:
             print(f"開始翻譯（{args.translate_lang} / {args.translate_backend}）...", flush=True)
@@ -558,10 +542,9 @@ if __name__ == '__main__':
                 backend=args.translate_backend,
                 claude_api_key=args.claude_api_key,
                 gemini_api_key=args.gemini_api_key,
-            translate_prompt=args.translate_prompt,
+                translate_prompt=args.translate_prompt,
             )
 
-        # 翻譯完成後才貼前綴
         for seg in all_segs:
             p = seg.get('_prefix', '')
             seg['text'] = f"{p} {seg['text'].strip()}"
@@ -582,13 +565,13 @@ if __name__ == '__main__':
         if args.channel in ('left', 'right'):
             label = '左聲道' if args.channel == 'left' else '右聲道'
             print(f"[聲道] 抽取 {label}...", flush=True)
-            tmp = _extract_channel(args.file, args.channel)
+            tmp = _extract_channel(input_file, args.channel)
             try:
                 extracted = _transcribe_file(tmp, model, args)
             finally:
                 os.unlink(tmp)
         else:
-            extracted = _transcribe_file(args.file, model, args)
+            extracted = _transcribe_file(input_file, model, args)
 
         extracted = _post_process(extracted, args)
         write_srt_file(output_file, extracted)
@@ -599,6 +582,45 @@ if __name__ == '__main__':
             write_srt_file(review_file, extracted, review=True)
             print(f"SRT_REVIEW:{review_file}", flush=True)
 
+
+if __name__ == '__main__':
+    args = parse_args()
+
+    print(f"MODEL_LOADING:{args.model}", flush=True)
+    print(f"載入 {args.model} 模型...", flush=True)
+    t0 = time.time()
+    model = WhisperModel(args.model, device=args.device, compute_type=args.compute_type)
+    load_secs = time.time() - t0
+    print(f"MODEL_LOADED:{load_secs:.1f}", flush=True)
+    print(f"模型載入完成，耗時 {int(load_secs // 60)} 分 {int(load_secs % 60)} 秒", flush=True)
+
+    files = args.file
+    total_files = len(files)
+
+    t0 = time.time()
+    for file_idx, input_file in enumerate(files):
+        if total_files > 1:
+            print(f"FILE:{file_idx + 1}/{total_files}", flush=True)
+            print(f"--- [{file_idx + 1}/{total_files}] {input_file} ---", flush=True)
+
+        output_file = (args.output if total_files == 1 and args.output
+                       else os.path.splitext(input_file)[0] + ".srt")
+
+        file_t0 = time.time()
+        try:
+            _process_single_file(input_file, output_file, model, args)
+        except Exception as e:
+            print(f"[錯誤] {input_file}: {e}", flush=True)
+            continue
+
+        file_elapsed = time.time() - file_t0
+        fm, fs = divmod(int(file_elapsed), 60)
+        if total_files > 1:
+            print(f"[{file_idx + 1}/{total_files}] 完成，耗時 {fm} 分 {fs} 秒", flush=True)
+
     elapsed = time.time() - t0
     m, s = divmod(int(elapsed), 60)
-    print(f"轉錄完成，耗時 {m} 分 {s} 秒", flush=True)
+    if total_files > 1:
+        print(f"全部完成，共 {total_files} 個檔案，耗時 {m} 分 {s} 秒", flush=True)
+    else:
+        print(f"轉錄完成，耗時 {m} 分 {s} 秒", flush=True)
