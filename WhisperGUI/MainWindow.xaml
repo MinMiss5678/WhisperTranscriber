@@ -55,6 +55,7 @@
                     <RowDefinition Height="34"/>
                     <RowDefinition Height="34"/>
                     <RowDefinition Height="34"/>
+                    <RowDefinition Height="34"/>
                 </Grid.RowDefinitions>
 
                 <!-- Row 0: 模型 / 語言 -->
@@ -107,9 +108,20 @@
                           x:Name="VadCheck" Content="VAD 靜音過濾"
                           VerticalAlignment="Center" Margin="4,0,0,0"/>
 
-                <!-- Row 4: 翻譯 -->
-                <Label Grid.Row="4" Grid.Column="0" Content="翻譯" VerticalAlignment="Center"/>
-                <Grid Grid.Row="4" Grid.Column="1" Margin="0,4,10,4">
+                <!-- Row 4: 聲道 -->
+                <Label Grid.Row="4" Grid.Column="0" Content="聲道" VerticalAlignment="Center"
+                       ToolTip="Binaural ASMR 可分離左右聲道分別輸出 SRT"/>
+                <ComboBox Grid.Row="4" Grid.Column="1" Grid.ColumnSpan="3"
+                          x:Name="ChannelCombo" Margin="0,4,0,4">
+                    <ComboBoxItem Tag="mix" IsSelected="True">混合（預設，左右合併）</ComboBoxItem>
+                    <ComboBoxItem Tag="left">左聲道</ComboBoxItem>
+                    <ComboBoxItem Tag="right">右聲道</ComboBoxItem>
+                    <ComboBoxItem Tag="split">分離聲道（輸出 _L.srt + _R.srt）</ComboBoxItem>
+                </ComboBox>
+
+                <!-- Row 5: 翻譯 -->
+                <Label Grid.Row="5" Grid.Column="0" Content="翻譯" VerticalAlignment="Center"/>
+                <Grid Grid.Row="5" Grid.Column="1" Margin="0,4,10,4">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="Auto"/>
                         <ColumnDefinition Width="*"/>
@@ -126,9 +138,9 @@
                     </ComboBox>
                 </Grid>
 
-                <!-- Row 5: 翻譯後端 + API Key -->
-                <Label Grid.Row="5" Grid.Column="0" Content="後端" VerticalAlignment="Center"/>
-                <ComboBox Grid.Row="5" Grid.Column="1" x:Name="TranslateBackendCombo"
+                <!-- Row 6: 翻譯後端 + API Key -->
+                <Label Grid.Row="6" Grid.Column="0" Content="後端" VerticalAlignment="Center"/>
+                <ComboBox Grid.Row="6" Grid.Column="1" x:Name="TranslateBackendCombo"
                           Margin="0,4,10,4" IsEnabled="False"
                           SelectionChanged="TranslateBackendCombo_SelectionChanged">
                     <ComboBoxItem Tag="googletrans" IsSelected="True">googletrans（免費）</ComboBoxItem>
@@ -137,20 +149,9 @@
                     <ComboBoxItem Tag="claude-haiku">Claude Haiku API（需 Key）</ComboBoxItem>
                     <ComboBoxItem Tag="claude-sonnet">Claude Sonnet API（需 Key）</ComboBoxItem>
                 </ComboBox>
-                <!-- Row 6: 聲道 -->
-                <Label Grid.Row="6" Grid.Column="0" Content="聲道" VerticalAlignment="Center"
-                       ToolTip="Binaural ASMR 可分離左右聲道分別輸出 SRT"/>
-                <ComboBox Grid.Row="6" Grid.Column="1" Grid.ColumnSpan="3"
-                          x:Name="ChannelCombo" Margin="0,4,0,4">
-                    <ComboBoxItem Tag="mix" IsSelected="True">混合（預設，左右合併）</ComboBoxItem>
-                    <ComboBoxItem Tag="left">左聲道</ComboBoxItem>
-                    <ComboBoxItem Tag="right">右聲道</ComboBoxItem>
-                    <ComboBoxItem Tag="split">分離聲道（輸出 _L.srt + _R.srt）</ComboBoxItem>
-                </ComboBox>
-
-                <Label Grid.Row="5" Grid.Column="2" x:Name="ApiKeyLabel"
+                <Label Grid.Row="6" Grid.Column="2" x:Name="ApiKeyLabel"
                        Content="API Key" VerticalAlignment="Center" Visibility="Collapsed"/>
-                <TextBox Grid.Row="5" Grid.Column="3" x:Name="ClaudeApiKeyBox"
+                <TextBox Grid.Row="6" Grid.Column="3" x:Name="ClaudeApiKeyBox"
                          Margin="0,4,0,4" VerticalContentAlignment="Center"
                          Visibility="Collapsed"
                          ToolTip="貼上 Anthropic API Key（以 sk-ant- 開頭）"/>
