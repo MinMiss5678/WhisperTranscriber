@@ -70,8 +70,8 @@ def test_hallucination_whitespace():
 def test_hallucination_latin_3plus():
     assert _is_hallucination("ABC") is True
 
-def test_hallucination_latin_2_ok():
-    assert _is_hallucination("た2") is False
+def test_hallucination_ta_digit_flagged():
+    assert _is_hallucination("た2") is True
 
 def test_hallucination_numeric_artifact():
     assert _is_hallucination("た20") is True
