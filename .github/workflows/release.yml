@@ -42,7 +42,7 @@ jobs:
           Copy-Item requirements.txt       $pkg/
           Copy-Item setup.bat              $pkg/
           Copy-Item uninstall.bat          $pkg/
-          Copy-Item "使用說明.txt"          $pkg/
+          Copy-Item "使用說明.md"           $pkg/
 
           # 壓縮
           Push-Location dist
