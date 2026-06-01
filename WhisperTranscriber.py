@@ -359,20 +359,21 @@ def merged_segments_with_model(segments):
     return merged
 
 
-_HALLUCINATION_PATTERNS = [
-    r'[a-zA-Z]{3,}',       # 3+ consecutive Latin letters in Japanese audio
-    r'た\d+',           # た20/た15 - numeric counter artifacts
-    r'[-ɏ]',     # Latin Extended chars (e.g. Turkish dotless-i)
-]
 import re as _re
-_HALLUCINATION_RE = _re.compile('|'.join(_HALLUCINATION_PATTERNS))
+
+_HAS_CJK = _re.compile(r'[　-鿿＀-￯぀-ヿ]')
+_LATIN_ONLY = _re.compile(r'[a-zA-Z]{3,}')
+_ARTIFACT_RE = _re.compile(r'た\d+|[-ɏ]')
 
 
 def _is_hallucination(text):
     stripped = text.strip()
     if not stripped:
         return True
-    if _HALLUCINATION_RE.search(stripped):
+    if _ARTIFACT_RE.search(stripped):
+        return True
+    # Text with Japanese characters is valid even if it contains English loanwords
+    if _LATIN_ONLY.search(stripped) and not _HAS_CJK.search(stripped):
         return True
     return False
 
@@ -586,10 +587,27 @@ def _process_single_file(input_file, output_file, model, args):
 if __name__ == '__main__':
     args = parse_args()
 
+    # Validate all input files before spending time loading the model
+    missing = [f for f in args.file if not os.path.isfile(f)]
+    if missing:
+        for f in missing:
+            print(f"[錯誤] 找不到檔案：{f}", flush=True)
+        sys.exit(1)
+
     print(f"MODEL_LOADING:{args.model}", flush=True)
     print(f"載入 {args.model} 模型...", flush=True)
     t0 = time.time()
-    model = WhisperModel(args.model, device=args.device, compute_type=args.compute_type)
+    try:
+        model = WhisperModel(args.model, device=args.device, compute_type=args.compute_type)
+    except RuntimeError as e:
+        msg = str(e)
+        if 'out of memory' in msg.lower():
+            print("[錯誤] 顯示卡記憶體不足，請關閉其他佔用 GPU 的程式後重試。", flush=True)
+        elif 'no cuda' in msg.lower() or 'cuda' in msg.lower():
+            print("[錯誤] 找不到 NVIDIA 顯示卡或 CUDA 驅動，請確認驅動已安裝，或改用 --device cpu --compute-type int8。", flush=True)
+        else:
+            print(f"[錯誤] 模型載入失敗：{msg}", flush=True)
+        sys.exit(1)
     load_secs = time.time() - t0
     print(f"MODEL_LOADED:{load_secs:.1f}", flush=True)
     print(f"模型載入完成，耗時 {int(load_secs // 60)} 分 {int(load_secs % 60)} 秒", flush=True)

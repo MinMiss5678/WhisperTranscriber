@@ -35,6 +35,17 @@ if errorlevel 1 (
     echo .NET 10 Runtime 已安裝，跳過。
 )
 
+:: ── CUDA 檢測 ────────────────────────────────────────────
+nvidia-smi > nul 2>&1
+if errorlevel 1 (
+    echo [警告] 未偵測到 NVIDIA GPU 或 CUDA 驅動。
+    echo         GPU 加速將無法使用，轉錄速度約為 GPU 的 1/10。
+    echo         如需 GPU 加速，請至 https://www.nvidia.com/drivers 安裝驅動後重新執行此腳本。
+    echo.
+) else (
+    echo NVIDIA GPU 驅動已安裝，跳過。
+)
+
 :: ── Python venv ──────────────────────────────────────────
 if not exist venv (
     echo 建立虛擬環境...
