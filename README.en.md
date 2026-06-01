@@ -104,7 +104,7 @@ Uses `sonoisa/sentence-bert-base-ja-mean-tokens-v2` to compute cosine similarity
 | Backend | Cost | Notes |
 |---|---|---|
 | googletrans | Free | No key required; moderate quality |
-| Gemini 2.5 Flash | Free quota | API key from [Google AI Studio](https://aistudio.google.com/); 10 RPM / 1,500 RPD free |
+| Gemini 2.5 Flash | Free quota | API key from [Google AI Studio](https://aistudio.google.com/); 5 RPM / 20 RPD free |
 | Claude Haiku API | Paid | API key from [Anthropic Console](https://console.anthropic.com/) |
 | Claude Sonnet API | Paid | Best quality |
 | Claude CLI | Requires subscription | Needs Claude desktop app installed |

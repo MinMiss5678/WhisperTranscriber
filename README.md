@@ -94,7 +94,7 @@ python WhisperTranscriber.py --file input.mp3 --device cpu --compute-type int8
 | 後端 | 費用 | 說明 |
 |---|---|---|
 | googletrans | 免費 | 不需申請，速度快，品質普通 |
-| Gemini 2.5 Flash | 免費額度 | 需 [Google AI Studio](https://aistudio.google.com/) API Key；10 RPM / 1,500 RPD 免費 |
+| Gemini 2.5 Flash | 免費額度 | 需 [Google AI Studio](https://aistudio.google.com/) API Key；5 RPM / 20 RPD 免費 |
 | Claude Haiku API | 付費 | 需 [Anthropic Console](https://console.anthropic.com/) API Key |
 | Claude Sonnet API | 付費 | 品質最佳 |
 | Claude CLI | 需訂閱 | 需安裝 Claude 桌面版 |
