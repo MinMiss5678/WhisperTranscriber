@@ -163,8 +163,16 @@ public partial class MainWindow : Window
         TranslateLangCombo.IsEnabled    = on;
         TranslateBackendCombo.IsEnabled = on;
         if (TranslatePromptBox is not null) TranslatePromptBox.IsEnabled = on;
+        if (PresetAsmrButton   is not null) PresetAsmrButton.IsEnabled   = on;
+        if (PresetDramaButton  is not null) PresetDramaButton.IsEnabled  = on;
         UpdateApiKeyVisibility();
     }
+
+    private const string PromptAsmr  = "日文 ASMR 字幕，保持自然、輕柔、親密的口語語氣，符合 ASMR 風格";
+    private const string PromptDrama = "日劇字幕翻譯，保留角色說話語氣和情感，敬語與普通話語氣的區別要維持，翻譯自然流暢。";
+
+    private void PresetAsmr_Click(object sender, RoutedEventArgs e)  => TranslatePromptBox.Text = PromptAsmr;
+    private void PresetDrama_Click(object sender, RoutedEventArgs e) => TranslatePromptBox.Text = PromptDrama;
 
     private void TranslateBackendCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
         => UpdateApiKeyVisibility();

@@ -90,6 +90,7 @@
                     <RowDefinition Height="34"/>
                     <RowDefinition Height="34"/>
                     <RowDefinition Height="34"/>
+                    <RowDefinition Height="34"/>
                 </Grid.RowDefinitions>
 
                 <!-- Row 0: 模型 / 語言 -->
@@ -201,6 +202,17 @@
                          VerticalContentAlignment="Center" IsEnabled="False"
                          Text="日文 ASMR 字幕，保持自然、輕柔、親密的口語語氣，符合 ASMR 風格"
                          ToolTip="翻譯時傳給 LLM 的風格指引（僅 LLM 後端有效，googletrans 忽略）"/>
+
+                <!-- Row 8: 翻譯提示預設 -->
+                <StackPanel Grid.Row="8" Grid.Column="1" Grid.ColumnSpan="3"
+                            Orientation="Horizontal" Margin="0,2,0,2">
+                    <Button x:Name="PresetAsmrButton" Content="ASMR 預設" Width="80"
+                            Margin="0,0,6,0" IsEnabled="False" Click="PresetAsmr_Click"
+                            ToolTip="ASMR 字幕翻譯風格預設"/>
+                    <Button x:Name="PresetDramaButton" Content="日劇預設" Width="80"
+                            IsEnabled="False" Click="PresetDrama_Click"
+                            ToolTip="日劇字幕翻譯風格預設"/>
+                </StackPanel>
 
             </Grid>
         </GroupBox>
