@@ -184,7 +184,7 @@
                           Margin="0,4,10,4" IsEnabled="False"
                           SelectionChanged="TranslateBackendCombo_SelectionChanged">
                     <ComboBoxItem Tag="googletrans" IsSelected="True">googletrans（免費）</ComboBoxItem>
-                    <ComboBoxItem Tag="gemini-flash">Gemini 2.5 Flash（免費額度）</ComboBoxItem>
+                    <ComboBoxItem Tag="gemini-flash">Gemini（免費額度）</ComboBoxItem>
                     <ComboBoxItem Tag="claude-cli">Claude CLI（需訂閱）</ComboBoxItem>
                     <ComboBoxItem Tag="claude-haiku">Claude Haiku API（需 Key）</ComboBoxItem>
                     <ComboBoxItem Tag="claude-sonnet">Claude Sonnet API（需 Key）</ComboBoxItem>
