@@ -9,7 +9,7 @@
 - VAD 靜音過濾，減少幻覺字幕
 - 語意相似度字幕合併（Japanese BERT，僅日文）
 - 雙聲道分離（Binaural ASMR 左/右聲道分別轉錄，輸出含 `[L]`/`[R]` 標示的單一 SRT）
-- 翻譯：googletrans（免費）、Gemini 2.5 Flash、Claude Haiku/Sonnet API、Claude CLI
+- 翻譯：googletrans（免費）、Gemini（免費額度，模型可設定）、Claude Haiku/Sonnet API、Claude CLI
 - 翻譯時同時輸出含原文+譯文的校對版 SRT
 - 批次佇列 + Pipeline 模式：第 N 筆翻譯與第 N+1 筆轉錄同時進行
 
@@ -80,6 +80,7 @@ python WhisperTranscriber.py --file input.mp3 --device cpu --compute-type int8
 | `--translate-backend` | `googletrans` | `googletrans`、`claude-cli`、`claude-haiku`、`claude-sonnet`、`gemini-flash` |
 | `--claude-api-key` | | Anthropic API Key（claude-haiku/sonnet 需要） |
 | `--gemini-api-key` | | Google API Key（gemini-flash 需要，Google AI Studio 申請，有免費額度） |
+| `--gemini-model` | `gemini-3.1-flash-lite` | Gemini 模型 ID（可改為其他 Gemini 模型） |
 | `--translate-prompt` | ASMR 風格 | LLM 翻譯風格提示詞（LLM 後端有效，googletrans 忽略） |
 
 ## 輸出檔案
@@ -94,7 +95,7 @@ python WhisperTranscriber.py --file input.mp3 --device cpu --compute-type int8
 | 後端 | 費用 | 說明 |
 |---|---|---|
 | googletrans | 免費 | 不需申請，速度快，品質普通 |
-| Gemini 2.5 Flash | 免費額度 | 需 [Google AI Studio](https://aistudio.google.com/) API Key；5 RPM / 20 RPD 免費 |
+| Gemini | 免費額度 | 需 [Google AI Studio](https://aistudio.google.com/) API Key；預設 `gemini-3.1-flash-lite`（500 RPD 免費），可自訂模型 |
 | Claude Haiku API | 付費 | 需 [Anthropic Console](https://console.anthropic.com/) API Key |
 | Claude Sonnet API | 付費 | 品質最佳 |
 | Claude CLI | 需訂閱 | 需安裝 Claude 桌面版 |

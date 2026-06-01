@@ -9,7 +9,7 @@ Transcribe audio/video files into SRT subtitles with optional translation. Power
 - VAD silence filtering to reduce hallucinations
 - Semantic subtitle merging via Japanese BERT
 - Binaural channel splitting — transcribe left/right channels separately into a single SRT with `[L]`/`[R]` labels
-- Translation: googletrans (free), Gemini 2.5 Flash, Claude Haiku/Sonnet API, Claude CLI
+- Translation: googletrans (free), Gemini (free quota, model configurable), Claude Haiku/Sonnet API, Claude CLI
 - Outputs both a translated SRT and a side-by-side review SRT (original + translation)
 - Batch queue with pipeline mode — translation of file N overlaps with transcription of file N+1
 
@@ -80,6 +80,7 @@ python WhisperTranscriber.py --file input.mp3 --device cpu --compute-type int8
 | `--translate-backend` | `googletrans` | `googletrans`, `claude-cli`, `claude-haiku`, `claude-sonnet`, `gemini-flash` |
 | `--claude-api-key` | | Anthropic API Key (required for claude-haiku/sonnet) |
 | `--gemini-api-key` | | Google API Key (required for gemini-flash; free quota available at Google AI Studio) |
+| `--gemini-model` | `gemini-3.1-flash-lite` | Gemini model ID (can be changed to any available Gemini model) |
 | `--translate-prompt` | ASMR style | Style hint appended to the LLM system prompt (LLM backends only) |
 
 ## Output Files
@@ -104,7 +105,7 @@ Uses `sonoisa/sentence-bert-base-ja-mean-tokens-v2` to compute cosine similarity
 | Backend | Cost | Notes |
 |---|---|---|
 | googletrans | Free | No key required; moderate quality |
-| Gemini 2.5 Flash | Free quota | API key from [Google AI Studio](https://aistudio.google.com/); 5 RPM / 20 RPD free |
+| Gemini | Free quota | API key from [Google AI Studio](https://aistudio.google.com/); default `gemini-3.1-flash-lite` (500 RPD free); model configurable |
 | Claude Haiku API | Paid | API key from [Anthropic Console](https://console.anthropic.com/) |
 | Claude Sonnet API | Paid | Best quality |
 | Claude CLI | Requires subscription | Needs Claude desktop app installed |

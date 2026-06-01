@@ -132,7 +132,7 @@ Module-level lazy singleton，首次呼叫時載入 `sonoisa/sentence-bert-base-
 | 合併後總字元數 | ≤ 45 |
 | 單段時長（pre-check） | ≤ 6.0 秒，否則直接輸出不合併 |
 
-### `translate_segments(segments, target_lang, backend, claude_api_key, gemini_api_key, translate_prompt)`
+### `translate_segments(segments, target_lang, backend, claude_api_key, gemini_api_key, translate_prompt, gemini_model)`
 
 | Backend | 實作 | 備註 |
 |---|---|---|
@@ -140,7 +140,7 @@ Module-level lazy singleton，首次呼叫時載入 `sonoisa/sentence-bert-base-
 | `claude-cli` | `subprocess` 呼叫 `claude -p` | 需 Claude 訂閱；全段一次送入，超過 400K chars 自動切批 |
 | `claude-haiku` | Anthropic SDK，`claude-haiku-4-5-20251001` | 每批 150 段 |
 | `claude-sonnet` | Anthropic SDK，`claude-sonnet-4-6` | 每批 150 段 |
-| `gemini-flash` | Google GenAI SDK，`gemini-3.1-flash-lite` | 每批 150 段；有免費額度（5 RPM / 20 RPD） |
+| `gemini-flash` | Google GenAI SDK，預設 `gemini-3.1-flash-lite` | 每批 150 段；模型由 `--gemini-model` 指定；有免費額度（500 RPD） |
 
 翻譯結果寫入 `seg['translation']`，原文 `seg['text']` 不變。
 
@@ -186,7 +186,9 @@ scriptPath = Path.Combine(RepoRoot, "WhisperTranscriber.py");
 
 `BeamSize` 已從 GUI 移除，固定傳 `--beam-size 5`；CLI 仍可覆蓋。
 
-`ClaudeApiKey` 欄位同時用於 Gemini Key：backend 為 `gemini-flash` 時，GUI 以 `--gemini-api-key` 傳入相同值；`AppSettings` 中無獨立 Gemini 欄位。
+`ClaudeApiKey` 欄位同時用於 Gemini Key：backend 為 `gemini-flash` 時，GUI 以 `--gemini-api-key` 傳入相同值；`AppSettings` 中無獨立 Gemini Key 欄位。
+
+`GeminiModel`（`AppSettings`）：`gemini-flash` 後端選取時，GUI 顯示「Gemini 模型」輸入欄，允許用戶自訂模型 ID（預設 `gemini-3.1-flash-lite`），以 `--gemini-model` 傳入 Python。
 
 視窗關閉時寫入，載入時讀取。讀取失敗（格式錯誤、不存在）靜默忽略。
 
