@@ -7,15 +7,17 @@
 - 多模型支援（tiny → large-v3、distil-large-v3）
 - CUDA GPU 加速，CPU 亦可運作
 - VAD 靜音過濾，減少幻覺字幕
-- 語意相似度字幕合併（Japanese BERT）
-- 雙聲道分離（Binaural ASMR 左/右聲道合併輸出單一 SRT）
-- 翻譯：googletrans（免費）、Claude CLI、Claude Haiku/Sonnet API
+- 語意相似度字幕合併（Japanese BERT，僅日文）
+- 雙聲道分離（Binaural ASMR 左/右聲道分別轉錄，輸出含 `[L]`/`[R]` 標示的單一 SRT）
+- 翻譯：googletrans（免費）、Gemini 2.5 Flash、Claude Haiku/Sonnet API、Claude CLI
 - 翻譯時同時輸出含原文+譯文的校對版 SRT
+- 批次佇列 + Pipeline 模式：第 N 筆翻譯與第 N+1 筆轉錄同時進行
 
 ## 環境需求
 
+- Windows 10 / 11
+- NVIDIA GPU（建議；CPU 亦可但速度慢約 10 倍）
 - Python 3.10+
-- NVIDIA GPU（建議；CPU 亦可但速度慢）
 - .NET 10 Runtime（僅 GUI 需要）
 
 ## 安裝
@@ -25,8 +27,6 @@
 - Python 3.12（未安裝時透過 winget 自動下載）
 - .NET 10 Runtime（未安裝時透過 winget 自動下載）
 - Python 虛擬環境與所有套件
-
-Windows 10 / 11 內建 winget，無需其他前置作業。
 
 首次執行會自動從 HuggingFace Hub 下載模型（large-v3 約 3 GB）。
 
@@ -67,12 +67,12 @@ python WhisperTranscriber.py --file input.mp3 --device cpu --compute-type int8
 | `--file` | （必填）| 輸入音訊/視訊檔案路徑 |
 | `--output` | 同輸入目錄 | 輸出 SRT 路徑 |
 | `--model` | `large-v3` | 模型大小（tiny/base/small/medium/large-v1/v2/v3/distil-large-v3） |
-| `--language` | 自動偵測 | 來源語言（`ja`、`zh`、`en`、`ko`...） |
+| `--language` | 自動偵測 | 來源語言（`ja`、`zh`、`en`、`ko`…） |
 | `--device` | `cuda` | `cuda` 或 `cpu` |
 | `--compute-type` | `float16` | `float16`（GPU）、`int8`（CPU） |
 | `--beam-size` | `5` | Beam search 寬度（1–10） |
 | `--initial-prompt` | | 提示詞（如「以下是日文的ASMR」） |
-| `--merge` | 關 | 啟用語意相似度字幕合併 |
+| `--merge` | 關 | 啟用語意相似度字幕合併（僅日文） |
 | `--vad-filter` | 關 | 啟用 VAD 靜音過濾 |
 | `--channel` | `mix` | `mix`、`left`、`right`、`split` |
 | `--translate` | 關 | 啟用翻譯 |
@@ -80,7 +80,7 @@ python WhisperTranscriber.py --file input.mp3 --device cpu --compute-type int8
 | `--translate-backend` | `googletrans` | `googletrans`、`claude-cli`、`claude-haiku`、`claude-sonnet`、`gemini-flash` |
 | `--claude-api-key` | | Anthropic API Key（claude-haiku/sonnet 需要） |
 | `--gemini-api-key` | | Google API Key（gemini-flash 需要，Google AI Studio 申請，有免費額度） |
-| `--translate-prompt` | `日文 ASMR 字幕...` | LLM 翻譯風格提示詞（claude-haiku/sonnet/cli/gemini-flash 有效） |
+| `--translate-prompt` | ASMR 風格 | LLM 翻譯風格提示詞（LLM 後端有效，googletrans 忽略） |
 
 ## 輸出檔案
 
@@ -88,7 +88,18 @@ python WhisperTranscriber.py --file input.mp3 --device cpu --compute-type int8
 |---|---|
 | 一般轉錄 | `<input>.srt` |
 | 翻譯 | `<input>.srt`（純譯文）、`<input>_review.srt`（原文+譯文） |
-| 雙聲道分離 | 同上 |
+
+## 翻譯後端
+
+| 後端 | 費用 | 說明 |
+|---|---|---|
+| googletrans | 免費 | 不需申請，速度快，品質普通 |
+| Gemini 2.5 Flash | 免費額度 | 需 [Google AI Studio](https://aistudio.google.com/) API Key；10 RPM / 1,500 RPD 免費 |
+| Claude Haiku API | 付費 | 需 [Anthropic Console](https://console.anthropic.com/) API Key |
+| Claude Sonnet API | 付費 | 品質最佳 |
+| Claude CLI | 需訂閱 | 需安裝 Claude 桌面版 |
+
+LLM 後端失敗或回傳段數不符時，自動 fallback 至 googletrans 補翻該批。
 
 ## 字幕合併條件（`--merge`）
 
