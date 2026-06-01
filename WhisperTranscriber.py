@@ -37,6 +37,10 @@ def parse_args():
     parser.add_argument('--channel', default='mix',
                         choices=['mix', 'left', 'right', 'split'],
                         dest='channel')
+    parser.add_argument('--segments-out', default=None, dest='segments_out',
+                        help='Save segments JSON after transcription (pipeline stage 1)')
+    parser.add_argument('--segments-in', default=None, dest='segments_in',
+                        help='Load segments JSON and translate only, skip transcription (pipeline stage 2)')
     return parser.parse_args()
 
 
@@ -574,18 +578,77 @@ def _process_single_file(input_file, output_file, model, args):
         else:
             extracted = _transcribe_file(input_file, model, args)
 
-        extracted = _post_process(extracted, args)
+        if args.merge:
+            print("合併字幕段落中...", flush=True)
+            extracted = merged_segments_with_model(extracted)
+        if args.segments_out:
+            import json as _json
+            with open(args.segments_out, 'w', encoding='utf-8') as _f:
+                _json.dump(extracted, _f, ensure_ascii=False)
+            print(f"SEGMENTS_SAVED:{args.segments_out}", flush=True)
+        else:
+            if args.translate:
+                print(f"開始翻譯（{args.translate_lang} / {args.translate_backend}）...", flush=True)
+                extracted = translate_segments(
+                    extracted, args.translate_lang,
+                    backend=args.translate_backend,
+                    claude_api_key=args.claude_api_key,
+                    gemini_api_key=args.gemini_api_key,
+                    translate_prompt=args.translate_prompt,
+                )
         write_srt_file(output_file, extracted)
         print(f"SRT:{output_file}", flush=True)
-        if args.translate:
+        if args.translate and not args.segments_out:
             base, ext = os.path.splitext(output_file)
             review_file = base + '_review' + ext
             write_srt_file(review_file, extracted, review=True)
             print(f"SRT_REVIEW:{review_file}", flush=True)
 
 
+
+def _run_translate_only(args):
+    """Stage 2: load segments from JSON, translate, write SRT. No model loading."""
+    import json as _json
+    with open(args.segments_in, encoding='utf-8') as _f:
+        extracted = _json.load(_f)
+
+    total_files = len(args.file)
+    input_file = args.file[0]
+    output_file = (args.output if total_files == 1 and args.output
+                   else os.path.splitext(input_file)[0] + ".srt")
+
+    if args.translate:
+        print(f"開始翻譯（{args.translate_lang} / {args.translate_backend}）...", flush=True)
+        extracted = translate_segments(
+            extracted, args.translate_lang,
+            backend=args.translate_backend,
+            claude_api_key=args.claude_api_key,
+            gemini_api_key=args.gemini_api_key,
+            translate_prompt=args.translate_prompt,
+        )
+
+    write_srt_file(output_file, extracted)
+    print(f"SRT:{output_file}", flush=True)
+
+    if args.translate:
+        base, ext = os.path.splitext(output_file)
+        review_file = base + '_review' + ext
+        write_srt_file(review_file, extracted, review=True)
+        print(f"SRT_REVIEW:{review_file}", flush=True)
+
 if __name__ == '__main__':
     args = parse_args()
+    if args.segments_in:
+        # Stage 2: translate-only, no model loading needed
+        # Validate file list so output path can be derived
+        missing = [f for f in args.file if not os.path.isfile(f)]
+        if missing:
+            for f in missing:
+                print(f"[錯誤] 找不到檔案：{f}", flush=True)
+            sys.exit(1)
+        _run_translate_only(args)
+        sys.exit(0)
+
 
     # Validate all input files before spending time loading the model
     missing = [f for f in args.file if not os.path.isfile(f)]

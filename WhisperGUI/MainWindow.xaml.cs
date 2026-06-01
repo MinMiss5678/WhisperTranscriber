@@ -121,7 +121,7 @@ public partial class MainWindow : Window
     private void RemoveFile_Click(object sender, RoutedEventArgs e)
     {
         var toRemove = QueueList.SelectedItems.Cast<QueueItem>()
-            .Where(q => q.Status != QueueStatus.Processing)
+            .Where(q => q.Status != QueueStatus.Transcribing && q.Status != QueueStatus.Translating)
             .ToList();
         foreach (var item in toRemove)
             QueueItems.Remove(item);
@@ -362,41 +362,129 @@ public partial class MainWindow : Window
 
         try
         {
-            foreach (var item in pendingItems)
+            bool usePipeline = translate && pendingItems.Count >= 2;
+
+            if (!usePipeline)
             {
-                item.Status = QueueStatus.Processing;
+                foreach (var item in pendingItems)
+                {
+                    if (_cts!.Token.IsCancellationRequested) { item.Status = QueueStatus.Pending; break; }
+                    item.Status = QueueStatus.Transcribing;
 
-                string audioFile = item.FilePath;
-                string outputDir = OutputDirBox.Text == OutputDirPlaceholder
-                    ? Path.GetDirectoryName(audioFile)!
-                    : OutputDirBox.Text;
-                string outputFile = Path.Combine(outputDir,
-                    Path.GetFileNameWithoutExtension(audioFile) + ".srt");
+                    string audioFile = item.FilePath;
+                    string outputFile = DeriveOutputFile(audioFile);
 
-                try
-                {
-                    await RunTranscription(audioFile, outputFile, model, language, device,
-                        computeType, prompt, merge, vad, beamSize,
-                        translate, translateLang, translateBackend, claudeApiKey,
-                        translatePrompt, channel, _cts.Token);
-                    item.Status = QueueStatus.Done;
-                    processedCount++;
-                    _lastAudioFile = audioFile;
+                    try
+                    {
+                        await RunTranscription(audioFile, outputFile, model, language, device,
+                            computeType, prompt, merge, vad, beamSize,
+                            translate, translateLang, translateBackend, claudeApiKey,
+                            translatePrompt, channel, _cts.Token);
+                        item.Status = QueueStatus.Done;
+                        processedCount++;
+                        _lastAudioFile = audioFile;
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        item.Status = QueueStatus.Pending;
+                        StatusText.Text       = "已取消";
+                        StatusText.Foreground = Brushes.Gray;
+                        AppendLog("[已取消]");
+                        break;
+                    }
+                    catch (Exception ex)
+                    {
+                        item.Status = QueueStatus.Error;
+                        anyError = true;
+                        AppendLog($"[錯誤] {item.FileName}: {ex.Message}");
+                    }
                 }
-                catch (OperationCanceledException)
+            }
+            else
+            {
+                // Pipeline: translation of file N overlaps with transcription of file N+1
+                Task? translateTask = null;
+
+                async Task FlushTranslation()
                 {
-                    item.Status = QueueStatus.Pending;
-                    StatusText.Text       = "已取消";
-                    StatusText.Foreground = Brushes.Gray;
-                    AppendLog("[已取消]");
-                    break;
+                    if (translateTask != null)
+                    {
+                        try { await translateTask; } catch { }
+                        translateTask = null;
+                    }
                 }
-                catch (Exception ex)
+
+                foreach (var item in pendingItems)
                 {
-                    item.Status = QueueStatus.Error;
-                    anyError = true;
-                    AppendLog($"[錯誤] {item.FileName}: {ex.Message}");
+                    if (_cts!.Token.IsCancellationRequested)
+                    {
+                        item.Status = QueueStatus.Pending;
+                        await FlushTranslation();
+                        break;
+                    }
+
+                    string audioFile  = item.FilePath;
+                    string outputFile = DeriveOutputFile(audioFile);
+                    string segJson    = Path.Combine(Path.GetTempPath(), $"whisper_{Guid.NewGuid():N}.json");
+
+                    item.Status = QueueStatus.Transcribing;
+                    try
+                    {
+                        await RunTranscriptionOnly(audioFile, outputFile, segJson,
+                            model, language, device, computeType, prompt, merge, vad, beamSize, channel,
+                            _cts.Token);
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        item.Status = QueueStatus.Pending;
+                        if (File.Exists(segJson)) File.Delete(segJson);
+                        await FlushTranslation();
+                        break;
+                    }
+                    catch (Exception ex)
+                    {
+                        item.Status = QueueStatus.Error;
+                        anyError = true;
+                        AppendLog($"[錯誤] {item.FileName}: {ex.Message}");
+                        if (File.Exists(segJson)) File.Delete(segJson);
+                        await FlushTranslation();
+                        continue;
+                    }
+
+                    // Wait for the previous translation to finish before starting a new one
+                    await FlushTranslation();
+
+                    // Start translation of this item (runs while next item is being transcribed)
+                    item.Status = QueueStatus.Translating;
+                    var capturedItem   = item;
+                    var capturedJson   = segJson;
+                    var capturedOutput = outputFile;
+                    var capturedAudio  = audioFile;
+                    translateTask = RunTranslationOnly(
+                        capturedAudio, capturedOutput, capturedJson,
+                        translateLang, translateBackend, claudeApiKey, translatePrompt,
+                        _cts.Token)
+                        .ContinueWith(t =>
+                        {
+                            Dispatcher.Invoke(() =>
+                            {
+                                capturedItem.Status = (t.IsFaulted || t.IsCanceled)
+                                    ? QueueStatus.Error
+                                    : QueueStatus.Done;
+                                if (t.IsFaulted)
+                                    AppendLog($"[翻譯錯誤] {capturedItem.FileName}: {t.Exception?.InnerException?.Message}");
+                                else
+                                {
+                                    processedCount++;
+                                    _lastAudioFile = capturedAudio;
+                                }
+                            });
+                            if (File.Exists(capturedJson)) File.Delete(capturedJson);
+                        }, TaskScheduler.Default);
                 }
+
+                // Wait for the last translation to complete
+                await FlushTranslation();
             }
 
             if (processedCount > 0)
@@ -562,6 +650,139 @@ public partial class MainWindow : Window
         }
     }
 
+    private string DeriveOutputFile(string audioFile)
+    {
+        string outputDir = OutputDirBox.Text == OutputDirPlaceholder
+            ? Path.GetDirectoryName(audioFile)!
+            : OutputDirBox.Text;
+        return Path.Combine(outputDir, Path.GetFileNameWithoutExtension(audioFile) + ".srt");
+    }
+
+    private async Task RunTranscriptionOnly(string audioFile, string outputFile, string segmentsJsonPath,
+        string model, string language, string device, string computeType,
+        string prompt, bool merge, bool vad, int beamSize, string channel, CancellationToken ct)
+    {
+        string pythonExe  = Path.Combine(RepoRoot, "venv", "Scripts", "python.exe");
+        string scriptPath = Path.Combine(RepoRoot, "WhisperTranscriber.py");
+
+        var sb = new StringBuilder($"\"{scriptPath}\"");
+        sb.Append($" --model {model}");
+        sb.Append($" --file \"{audioFile}\"");
+        sb.Append($" --output \"{outputFile}\"");
+        sb.Append($" --device {device}");
+        sb.Append($" --compute-type {computeType}");
+        sb.Append($" --beam-size {beamSize}");
+        if (!string.IsNullOrEmpty(language))
+            sb.Append($" --language {language}");
+        if (!string.IsNullOrWhiteSpace(prompt))
+            sb.Append($" --initial-prompt \"{prompt.Replace("\"", "\\\"")}\"");
+        if (channel != "mix") sb.Append($" --channel {channel}");
+        if (merge) sb.Append(" --merge");
+        if (vad)   sb.Append(" --vad-filter");
+        sb.Append($" --segments-out \"{segmentsJsonPath}\"");
+
+        var psi = new ProcessStartInfo
+        {
+            FileName               = pythonExe,
+            Arguments              = sb.ToString(),
+            UseShellExecute        = false,
+            RedirectStandardOutput = true,
+            RedirectStandardError  = true,
+            CreateNoWindow         = true,
+            StandardOutputEncoding = Encoding.UTF8,
+            StandardErrorEncoding  = Encoding.UTF8,
+            WorkingDirectory       = RepoRoot,
+        };
+        psi.Environment["PYTHONIOENCODING"] = "utf-8";
+
+        var proc = new Process { StartInfo = psi, EnableRaisingEvents = true };
+        _process = proc;
+        var exitTcs = new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously);
+        proc.Exited += (_, _) => exitTcs.TrySetResult(proc.ExitCode);
+        proc.Start();
+
+        AppendLog($"[轉錄] {Path.GetFileName(audioFile)}  模型:{model}");
+
+        var stdoutTask = ConsumeStreamAsync(proc.StandardOutput, isStdout: true);
+        var stderrTask = ConsumeStreamAsync(proc.StandardError, isStdout: false);
+
+        using var reg = ct.Register(() =>
+        {
+            try { proc.Kill(entireProcessTree: true); } catch { }
+            exitTcs.TrySetCanceled();
+        });
+
+        int exitCode = await exitTcs.Task;
+        await Task.WhenAll(stdoutTask, stderrTask);
+        proc.Dispose();
+        _process = null;
+
+        if (exitCode != 0)
+            throw new Exception($"Python 退出碼 {exitCode}");
+    }
+
+    private async Task RunTranslationOnly(string audioFile, string outputFile, string segmentsJsonPath,
+        string translateLang, string translateBackend, string claudeApiKey,
+        string translatePrompt, CancellationToken ct)
+    {
+        string pythonExe  = Path.Combine(RepoRoot, "venv", "Scripts", "python.exe");
+        string scriptPath = Path.Combine(RepoRoot, "WhisperTranscriber.py");
+
+        var sb = new StringBuilder($"\"{scriptPath}\"");
+        sb.Append($" --file \"{audioFile}\"");
+        sb.Append($" --output \"{outputFile}\"");
+        sb.Append($" --segments-in \"{segmentsJsonPath}\"");
+        sb.Append(" --translate");
+        sb.Append($" --translate-lang {translateLang}");
+        sb.Append($" --translate-backend {translateBackend}");
+        if (!string.IsNullOrWhiteSpace(claudeApiKey))
+        {
+            if (translateBackend == "gemini-flash")
+                sb.Append($" --gemini-api-key \"{claudeApiKey}\"");
+            else
+                sb.Append($" --claude-api-key \"{claudeApiKey}\"");
+        }
+        if (!string.IsNullOrWhiteSpace(translatePrompt))
+            sb.Append($" --translate-prompt \"{translatePrompt.Replace("\"", "\\\"")}\"");
+
+        var psi = new ProcessStartInfo
+        {
+            FileName               = pythonExe,
+            Arguments              = sb.ToString(),
+            UseShellExecute        = false,
+            RedirectStandardOutput = true,
+            RedirectStandardError  = true,
+            CreateNoWindow         = true,
+            StandardOutputEncoding = Encoding.UTF8,
+            StandardErrorEncoding  = Encoding.UTF8,
+            WorkingDirectory       = RepoRoot,
+        };
+        psi.Environment["PYTHONIOENCODING"] = "utf-8";
+
+        var proc = new Process { StartInfo = psi, EnableRaisingEvents = true };
+        var exitTcs = new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously);
+        proc.Exited += (_, _) => exitTcs.TrySetResult(proc.ExitCode);
+        proc.Start();
+
+        AppendLog($"[翻譯] {Path.GetFileName(audioFile)}  後端:{translateBackend}");
+
+        var stdoutTask = ConsumeStreamAsync(proc.StandardOutput, isStdout: true);
+        var stderrTask = ConsumeStreamAsync(proc.StandardError, isStdout: false);
+
+        using var reg = ct.Register(() =>
+        {
+            try { proc.Kill(entireProcessTree: true); } catch { }
+            exitTcs.TrySetCanceled();
+        });
+
+        int exitCode = await exitTcs.Task;
+        await Task.WhenAll(stdoutTask, stderrTask);
+        proc.Dispose();
+
+        if (exitCode != 0)
+            throw new Exception($"Python 翻譯退出碼 {exitCode}");
+    }
+
     private async Task ConsumeStreamAsync(StreamReader reader, bool isStdout)
     {
         while (true)
@@ -707,7 +928,7 @@ file sealed class AppSettings
     public string OutputDir     { get; set; } = "";
 }
 
-public enum QueueStatus { Pending, Processing, Done, Error }
+public enum QueueStatus { Pending, Transcribing, Translating, Done, Error }
 
 public class QueueItem : System.ComponentModel.INotifyPropertyChanged
 {
@@ -723,19 +944,21 @@ public class QueueItem : System.ComponentModel.INotifyPropertyChanged
 
     public string StatusText => Status switch
     {
-        QueueStatus.Pending    => "等待中",
-        QueueStatus.Processing => "處理中",
-        QueueStatus.Done       => "完成",
-        QueueStatus.Error      => "錯誤",
-        _                      => ""
+        QueueStatus.Pending      => "等待中",
+        QueueStatus.Transcribing => "轉錄中",
+        QueueStatus.Translating  => "翻譯中",
+        QueueStatus.Done         => "完成",
+        QueueStatus.Error        => "錯誤",
+        _                        => ""
     };
 
     public System.Windows.Media.Brush StatusBrush => Status switch
     {
-        QueueStatus.Done       => System.Windows.Media.Brushes.DarkGreen,
-        QueueStatus.Error      => System.Windows.Media.Brushes.Red,
-        QueueStatus.Processing => System.Windows.Media.Brushes.DodgerBlue,
-        _                      => System.Windows.Media.Brushes.Gray
+        QueueStatus.Done         => System.Windows.Media.Brushes.DarkGreen,
+        QueueStatus.Error        => System.Windows.Media.Brushes.Red,
+        QueueStatus.Transcribing => System.Windows.Media.Brushes.DodgerBlue,
+        QueueStatus.Translating  => System.Windows.Media.Brushes.DodgerBlue,
+        _                        => System.Windows.Media.Brushes.Gray
     };
 
     public event System.ComponentModel.PropertyChangedEventHandler? PropertyChanged;
