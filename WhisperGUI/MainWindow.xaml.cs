@@ -137,6 +137,12 @@ public partial class MainWindow : Window
             QueueItems.Remove(item);
     }
 
+    private void RetryError_Click(object sender, RoutedEventArgs e)
+    {
+        foreach (var item in QueueItems.Where(q => q.Status == QueueStatus.Error))
+            item.Status = QueueStatus.Pending;
+    }
+
     // ── Browse ────────────────────────────────────────────────────────────────
 
     private void BrowseOutputDir_Click(object sender, RoutedEventArgs e)

@@ -49,8 +49,11 @@
                             Click="AddFiles_Click"/>
                     <Button x:Name="RemoveFileButton" Content="移除" Width="80" Margin="0,0,0,4"
                             Click="RemoveFile_Click"/>
-                    <Button x:Name="ClearDoneButton" Content="清除完成" Width="80"
+                    <Button x:Name="ClearDoneButton" Content="清除完成" Width="80" Margin="0,0,0,4"
                             Click="ClearDone_Click"/>
+                    <Button x:Name="RetryErrorButton" Content="重試錯誤" Width="80"
+                            Click="RetryError_Click"
+                            ToolTip="將所有錯誤項目重設為等待中"/>
                 </StackPanel>
 
                 <!-- Output dir row -->
