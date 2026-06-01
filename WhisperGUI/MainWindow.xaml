@@ -22,7 +22,7 @@
 
                 <!-- Queue list -->
                 <ListView Grid.Row="0" Grid.Column="0" x:Name="QueueList"
-                          MinHeight="100"
+                          MinHeight="100" MaxHeight="200"
                           SelectionMode="Extended"
                           AllowDrop="True"
                           DragOver="QueueList_DragOver"
