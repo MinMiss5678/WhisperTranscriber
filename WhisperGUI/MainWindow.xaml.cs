@@ -34,6 +34,7 @@ public partial class MainWindow : Window
     private DispatcherTimer? _loadingTimer;
     private DateTime _loadingStart;
     private System.Windows.Forms.NotifyIcon? _notifyIcon;
+    private string? _subtitleEditExe;
 
     public ObservableCollection<QueueItem> QueueItems { get; } = new();
 
@@ -224,6 +225,8 @@ public partial class MainWindow : Window
             TranslatePromptBox.Text = s.TranslatePrompt;
             SelectComboByTag(ChannelCombo, s.Channel);
             NotifyCheck.IsChecked   = s.NotifyOnComplete;
+            if (!string.IsNullOrWhiteSpace(s.SubtitleEditPath))
+                _subtitleEditExe = s.SubtitleEditPath;
 
             if (!string.IsNullOrWhiteSpace(s.OutputDir))
             {
@@ -254,8 +257,9 @@ public partial class MainWindow : Window
                 ClaudeApiKey     = ClaudeApiKeyBox.Text.Trim(),
                 TranslatePrompt  = TranslatePromptBox.Text.Trim(),
                 Channel          = ((ComboBoxItem)ChannelCombo.SelectedItem).Tag?.ToString() ?? "mix",
-                NotifyOnComplete = NotifyCheck.IsChecked == true,
-                OutputDir        = OutputDirBox.Text == OutputDirPlaceholder ? "" : OutputDirBox.Text,
+                NotifyOnComplete  = NotifyCheck.IsChecked == true,
+                SubtitleEditPath  = _subtitleEditExe ?? "",
+                OutputDir         = OutputDirBox.Text == OutputDirPlaceholder ? "" : OutputDirBox.Text,
             };
             File.WriteAllText(SettingsPath,
                 JsonSerializer.Serialize(s, new JsonSerializerOptions { WriteIndented = true }));
@@ -534,11 +538,25 @@ public partial class MainWindow : Window
     {
         string? target = _reviewSrtPath ?? _lastSrtPath;
         if (target is null || !File.Exists(target)) return;
-        string? se = Array.Find(_subtitleEditPaths, File.Exists);
-        if (se is not null)
-            Process.Start(new ProcessStartInfo(se) { Arguments = $"\"{target}\"", UseShellExecute = false });
-        else
-            Process.Start(new ProcessStartInfo(target) { UseShellExecute = true });
+
+        string? se = _subtitleEditExe is not null && File.Exists(_subtitleEditExe)
+            ? _subtitleEditExe
+            : Array.Find(_subtitleEditPaths, File.Exists);
+
+        if (se is null)
+        {
+            var dlg = new OpenFileDialog
+            {
+                Title  = "找不到 Subtitle Edit，請手動選擇執行檔",
+                Filter = "Subtitle Edit|SubtitleEdit.exe|執行檔|*.exe",
+            };
+            if (dlg.ShowDialog() != true) return;
+            se = dlg.FileName;
+            _subtitleEditExe = se;
+            SaveSettings();
+        }
+
+        Process.Start(new ProcessStartInfo(se) { Arguments = $"\"{target}\"", UseShellExecute = false });
     }
 
     private void PlayButton_Click(object sender, RoutedEventArgs e)
@@ -924,8 +942,9 @@ file sealed class AppSettings
     public string ClaudeApiKey     { get; set; } = "";
     public string TranslatePrompt  { get; set; } = "日文 ASMR 字幕，保持自然、輕柔、親密的口語語氣，符合 ASMR 風格";
     public string Channel          { get; set; } = "mix";
-    public bool   NotifyOnComplete { get; set; } = false;
-    public string OutputDir     { get; set; } = "";
+    public bool   NotifyOnComplete  { get; set; } = false;
+    public string SubtitleEditPath  { get; set; } = "";
+    public string OutputDir         { get; set; } = "";
 }
 
 public enum QueueStatus { Pending, Transcribing, Translating, Done, Error }
