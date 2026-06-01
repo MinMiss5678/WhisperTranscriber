@@ -283,7 +283,7 @@ def _translate_with_gemini(segments, target_lang, api_key, translate_prompt=''):
 
         try:
             response = client.models.generate_content(
-                model='gemini-2.5-flash',
+                model='gemini-3.1-flash-lite',
                 contents=prompt,
             )
             response_text = response.text

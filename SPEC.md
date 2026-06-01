@@ -140,7 +140,7 @@ Module-level lazy singleton，首次呼叫時載入 `sonoisa/sentence-bert-base-
 | `claude-cli` | `subprocess` 呼叫 `claude -p` | 需 Claude 訂閱；全段一次送入，超過 400K chars 自動切批 |
 | `claude-haiku` | Anthropic SDK，`claude-haiku-4-5-20251001` | 每批 150 段 |
 | `claude-sonnet` | Anthropic SDK，`claude-sonnet-4-6` | 每批 150 段 |
-| `gemini-flash` | Google GenAI SDK，`gemini-2.5-flash` | 每批 150 段；有免費額度（5 RPM / 20 RPD） |
+| `gemini-flash` | Google GenAI SDK，`gemini-3.1-flash-lite` | 每批 150 段；有免費額度（5 RPM / 20 RPD） |
 
 翻譯結果寫入 `seg['translation']`，原文 `seg['text']` 不變。
 
