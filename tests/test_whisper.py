@@ -82,6 +82,15 @@ def test_hallucination_japanese_ok():
 def test_hallucination_mixed_ok():
     assert _is_hallucination("ありがとう！") is False
 
+def test_hallucination_japanese_english_loanword_ok():
+    assert _is_hallucination("YouTubeで見た") is False
+
+def test_hallucination_japanese_english_brand_ok():
+    assert _is_hallucination("ASMRの動画") is False
+
+def test_hallucination_pure_latin_flagged():
+    assert _is_hallucination("Thank you for watching") is True
+
 
 # ── _pair_channels ────────────────────────────────────────────────────────────
 
