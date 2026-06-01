@@ -1,7 +1,9 @@
 using System;
+using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Globalization;
 using System.IO;
+using System.Linq;
 using System.Text;
 using System.Text.Json;
 using System.Threading;
@@ -11,6 +13,14 @@ using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Threading;
 using Microsoft.Win32;
+using Brushes = System.Windows.Media.Brushes;
+using ComboBox = System.Windows.Controls.ComboBox;
+using DataFormats = System.Windows.DataFormats;
+using DragDropEffects = System.Windows.DragDropEffects;
+using DragEventArgs = System.Windows.DragEventArgs;
+using MessageBox = System.Windows.MessageBox;
+using OpenFileDialog = Microsoft.Win32.OpenFileDialog;
+using SelectionChangedEventArgs = System.Windows.Controls.SelectionChangedEventArgs;
 
 namespace WhisperGUI;
 
@@ -20,17 +30,19 @@ public partial class MainWindow : Window
     private CancellationTokenSource? _cts;
     private string? _lastSrtPath;
     private string? _reviewSrtPath;
+    private string? _lastAudioFile;
     private DispatcherTimer? _loadingTimer;
     private DateTime _loadingStart;
+    private System.Windows.Forms.NotifyIcon? _notifyIcon;
+
+    public ObservableCollection<QueueItem> QueueItems { get; } = new();
 
     private static readonly string RepoRoot = DetectRepoRoot();
 
     private static string DetectRepoRoot()
     {
-        // Release: EXE 與 WhisperTranscriber.py 同目錄
         if (File.Exists(Path.Combine(AppContext.BaseDirectory, "WhisperTranscriber.py")))
             return AppContext.BaseDirectory;
-        // Development: bin\Debug\net10.0-windows\ 往上四層
         return Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, @"..\..\..\.."));
     }
 
@@ -40,7 +52,16 @@ public partial class MainWindow : Window
 
     private const string OutputDirPlaceholder = "（與輸入檔案相同目錄）";
 
-    public MainWindow() => InitializeComponent();
+    public MainWindow()
+    {
+        InitializeComponent();
+        QueueList.ItemsSource = QueueItems;
+        _notifyIcon = new System.Windows.Forms.NotifyIcon
+        {
+            Icon    = System.Drawing.SystemIcons.Application,
+            Visible = false,
+        };
+    }
 
     // ── Drag & Drop ───────────────────────────────────────────────────────────
 
@@ -54,21 +75,68 @@ public partial class MainWindow : Window
     private void Window_Drop(object sender, DragEventArgs e)
     {
         if (e.Data.GetData(DataFormats.FileDrop) is string[] files && files.Length > 0)
-            FilePathBox.Text = files[0];
+            AddFilesToQueue(files);
     }
 
-    // ── Browse ────────────────────────────────────────────────────────────────
+    private void QueueList_DragOver(object sender, DragEventArgs e)
+    {
+        e.Effects = e.Data.GetDataPresent(DataFormats.FileDrop)
+            ? DragDropEffects.Copy : DragDropEffects.None;
+        e.Handled = true;
+    }
 
-    private void BrowseFile_Click(object sender, RoutedEventArgs e)
+    private void QueueList_Drop(object sender, DragEventArgs e)
+    {
+        if (e.Data.GetData(DataFormats.FileDrop) is string[] files && files.Length > 0)
+            AddFilesToQueue(files);
+    }
+
+    private void AddFilesToQueue(string[] paths)
+    {
+        var existingPaths = QueueItems.Select(q => q.FilePath).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        foreach (string path in paths)
+        {
+            if (File.Exists(path) && !existingPaths.Contains(path))
+            {
+                QueueItems.Add(new QueueItem { FilePath = path });
+                existingPaths.Add(path);
+            }
+        }
+    }
+
+    // ── Queue buttons ─────────────────────────────────────────────────────────
+
+    private void AddFiles_Click(object sender, RoutedEventArgs e)
     {
         var dlg = new OpenFileDialog
         {
-            Filter = "媒體檔案|*.mp3;*.mp4;*.wav;*.m4a;*.mkv;*.avi;*.flac;*.ogg;*.ts;*.mts;*.m2ts|所有檔案|*.*",
-            Title  = "選擇音訊或視訊檔案"
+            Filter      = "媒體檔案|*.mp3;*.mp4;*.wav;*.m4a;*.mkv;*.avi;*.flac;*.ogg;*.ts;*.mts;*.m2ts|所有檔案|*.*",
+            Title       = "選擇音訊或視訊檔案",
+            Multiselect = true,
         };
         if (dlg.ShowDialog() == true)
-            FilePathBox.Text = dlg.FileName;
+            AddFilesToQueue(dlg.FileNames);
     }
+
+    private void RemoveFile_Click(object sender, RoutedEventArgs e)
+    {
+        var toRemove = QueueList.SelectedItems.Cast<QueueItem>()
+            .Where(q => q.Status != QueueStatus.Processing)
+            .ToList();
+        foreach (var item in toRemove)
+            QueueItems.Remove(item);
+    }
+
+    private void ClearDone_Click(object sender, RoutedEventArgs e)
+    {
+        var toRemove = QueueItems
+            .Where(q => q.Status == QueueStatus.Done || q.Status == QueueStatus.Error)
+            .ToList();
+        foreach (var item in toRemove)
+            QueueItems.Remove(item);
+    }
+
+    // ── Browse ────────────────────────────────────────────────────────────────
 
     private void BrowseOutputDir_Click(object sender, RoutedEventArgs e)
     {
@@ -91,8 +159,8 @@ public partial class MainWindow : Window
     private void TranslateCheck_Changed(object sender, RoutedEventArgs e)
     {
         bool on = TranslateCheck.IsChecked == true;
-        TranslateLangCombo.IsEnabled      = on;
-        TranslateBackendCombo.IsEnabled   = on;
+        TranslateLangCombo.IsEnabled    = on;
+        TranslateBackendCombo.IsEnabled = on;
         if (TranslatePromptBox is not null) TranslatePromptBox.IsEnabled = on;
         UpdateApiKeyVisibility();
     }
@@ -129,7 +197,10 @@ public partial class MainWindow : Window
     }
 
     private void Window_Closing(object sender, System.ComponentModel.CancelEventArgs e)
-        => SaveSettings();
+    {
+        SaveSettings();
+        _notifyIcon?.Dispose();
+    }
 
     private void LoadSettings()
     {
@@ -143,23 +214,22 @@ public partial class MainWindow : Window
             SelectComboByTag(LanguageCombo, s.Language);
             SelectComboByTag(DeviceCombo, s.Device);
             SelectComboByTag(ComputeTypeCombo, s.ComputeType);
-            PromptBox.Text        = s.InitialPrompt;
-            MergeCheck.IsChecked  = s.Merge;
-            VadCheck.IsChecked    = s.VadFilter;
+            PromptBox.Text           = s.InitialPrompt;
+            MergeCheck.IsChecked     = s.Merge;
+            VadCheck.IsChecked       = s.VadFilter;
             TranslateCheck.IsChecked = s.Translate;
             SelectComboByTag(TranslateLangCombo, s.TranslateLang);
             SelectComboByTag(TranslateBackendCombo, s.TranslateBackend);
-            ClaudeApiKeyBox.Text      = s.ClaudeApiKey;
-            TranslatePromptBox.Text   = s.TranslatePrompt;
+            ClaudeApiKeyBox.Text    = s.ClaudeApiKey;
+            TranslatePromptBox.Text = s.TranslatePrompt;
             SelectComboByTag(ChannelCombo, s.Channel);
+            NotifyCheck.IsChecked   = s.NotifyOnComplete;
 
             if (!string.IsNullOrWhiteSpace(s.OutputDir))
             {
                 OutputDirBox.Text       = s.OutputDir;
                 OutputDirBox.Foreground = Brushes.Black;
             }
-            if (!string.IsNullOrWhiteSpace(s.LastFile) && File.Exists(s.LastFile))
-                FilePathBox.Text = s.LastFile;
         }
         catch { }
     }
@@ -184,8 +254,8 @@ public partial class MainWindow : Window
                 ClaudeApiKey     = ClaudeApiKeyBox.Text.Trim(),
                 TranslatePrompt  = TranslatePromptBox.Text.Trim(),
                 Channel          = ((ComboBoxItem)ChannelCombo.SelectedItem).Tag?.ToString() ?? "mix",
-                OutputDir     = OutputDirBox.Text == OutputDirPlaceholder ? "" : OutputDirBox.Text,
-                LastFile      = FilePathBox.Text,
+                NotifyOnComplete = NotifyCheck.IsChecked == true,
+                OutputDir        = OutputDirBox.Text == OutputDirPlaceholder ? "" : OutputDirBox.Text,
             };
             File.WriteAllText(SettingsPath,
                 JsonSerializer.Serialize(s, new JsonSerializerOptions { WriteIndented = true }));
@@ -246,9 +316,10 @@ public partial class MainWindow : Window
 
     private async void StartTranscription_Click(object sender, RoutedEventArgs e)
     {
-        if (string.IsNullOrWhiteSpace(FilePathBox.Text))
+        var pendingItems = QueueItems.Where(q => q.Status == QueueStatus.Pending).ToList();
+        if (pendingItems.Count == 0)
         {
-            MessageBox.Show("請先選擇音訊或視訊檔案。", "提示", MessageBoxButton.OK, MessageBoxImage.Warning);
+            MessageBox.Show("佇列中沒有待處理的檔案。", "提示", MessageBoxButton.OK, MessageBoxImage.Warning);
             return;
         }
 
@@ -272,16 +343,8 @@ public partial class MainWindow : Window
         {
             string providerName = translateBackend == "gemini-flash" ? "Gemini" : "Claude";
             MessageBox.Show($"使用 {providerName} 翻譯需要填入 API Key。", "提示", MessageBoxButton.OK, MessageBoxImage.Warning);
-            SetRunning(false);
             return;
         }
-        string audioFile    = FilePathBox.Text;
-
-        string outputDir = OutputDirBox.Text == OutputDirPlaceholder
-            ? Path.GetDirectoryName(audioFile)!
-            : OutputDirBox.Text;
-        string outputFile = Path.Combine(outputDir,
-            Path.GetFileNameWithoutExtension(audioFile) + ".srt");
 
         SetRunning(true);
         LogBox.Clear();
@@ -294,24 +357,68 @@ public partial class MainWindow : Window
         _reviewSrtPath           = null;
         _cts = new CancellationTokenSource();
 
+        int processedCount = 0;
+        bool anyError = false;
+
         try
         {
-            await RunTranscription(audioFile, outputFile, model, language, device,
-                computeType, prompt, merge, vad, beamSize,
-                translate, translateLang, translateBackend, claudeApiKey,
-                translatePrompt, channel, _cts.Token);
-        }
-        catch (OperationCanceledException)
-        {
-            StatusText.Text       = "已取消";
-            StatusText.Foreground = Brushes.Gray;
-            AppendLog("[已取消]");
-        }
-        catch (Exception ex)
-        {
-            StatusText.Text       = "錯誤：" + ex.Message;
-            StatusText.Foreground = Brushes.Red;
-            AppendLog($"[錯誤] {ex}");
+            foreach (var item in pendingItems)
+            {
+                item.Status = QueueStatus.Processing;
+
+                string audioFile = item.FilePath;
+                string outputDir = OutputDirBox.Text == OutputDirPlaceholder
+                    ? Path.GetDirectoryName(audioFile)!
+                    : OutputDirBox.Text;
+                string outputFile = Path.Combine(outputDir,
+                    Path.GetFileNameWithoutExtension(audioFile) + ".srt");
+
+                try
+                {
+                    await RunTranscription(audioFile, outputFile, model, language, device,
+                        computeType, prompt, merge, vad, beamSize,
+                        translate, translateLang, translateBackend, claudeApiKey,
+                        translatePrompt, channel, _cts.Token);
+                    item.Status = QueueStatus.Done;
+                    processedCount++;
+                    _lastAudioFile = audioFile;
+                }
+                catch (OperationCanceledException)
+                {
+                    item.Status = QueueStatus.Pending;
+                    StatusText.Text       = "已取消";
+                    StatusText.Foreground = Brushes.Gray;
+                    AppendLog("[已取消]");
+                    break;
+                }
+                catch (Exception ex)
+                {
+                    item.Status = QueueStatus.Error;
+                    anyError = true;
+                    AppendLog($"[錯誤] {item.FileName}: {ex.Message}");
+                }
+            }
+
+            if (processedCount > 0)
+            {
+                if (!anyError)
+                {
+                    StatusText.Text       = $"完成！共處理 {processedCount} 個檔案";
+                    StatusText.Foreground = Brushes.DarkGreen;
+                }
+                else
+                {
+                    StatusText.Text       = $"完成（部分錯誤）：{processedCount} 個成功";
+                    StatusText.Foreground = Brushes.DarkOrange;
+                }
+
+                if (NotifyCheck.IsChecked == true && _notifyIcon is not null)
+                {
+                    _notifyIcon.Visible = true;
+                    _notifyIcon.ShowBalloonTip(4000, "Whisper 轉錄完成",
+                        $"已完成 {processedCount} 個檔案", System.Windows.Forms.ToolTipIcon.Info);
+                }
+            }
         }
         finally
         {
@@ -348,9 +455,8 @@ public partial class MainWindow : Window
 
     private void PlayButton_Click(object sender, RoutedEventArgs e)
     {
-        string audioFile = FilePathBox.Text;
-        if (!string.IsNullOrWhiteSpace(audioFile) && File.Exists(audioFile))
-            Process.Start(new ProcessStartInfo(audioFile) { UseShellExecute = true });
+        if (!string.IsNullOrWhiteSpace(_lastAudioFile) && File.Exists(_lastAudioFile))
+            Process.Start(new ProcessStartInfo(_lastAudioFile) { UseShellExecute = true });
     }
 
     private async Task RunTranscription(string audioFile, string outputFile,
@@ -452,6 +558,7 @@ public partial class MainWindow : Window
         {
             StatusText.Text       = $"轉錄失敗（退出碼 {exitCode}）";
             StatusText.Foreground = Brushes.Red;
+            throw new Exception($"Python 退出碼 {exitCode}");
         }
     }
 
@@ -473,7 +580,7 @@ public partial class MainWindow : Window
                     {
                         int elapsed = (int)(DateTime.Now - _loadingStart).TotalSeconds;
                         string hint = elapsed > 30 ? "  （首次執行需下載模型約 3 GB，請耐心等候）" : "";
-                        StatusText.Text      = $"載入 {modelName} 模型中… {elapsed} 秒{hint}";
+                        StatusText.Text       = $"載入 {modelName} 模型中… {elapsed} 秒{hint}";
                         StatusText.Foreground = Brushes.Gray;
                     };
                     _loadingTimer.Start();
@@ -485,7 +592,7 @@ public partial class MainWindow : Window
                 {
                     _loadingTimer?.Stop();
                     _loadingTimer = null;
-                    StatusText.Text      = "模型載入完成，開始辨識...";
+                    StatusText.Text       = "模型載入完成，開始辨識...";
                     StatusText.Foreground = Brushes.Gray;
                 });
             }
@@ -571,10 +678,12 @@ public partial class MainWindow : Window
 
     private void SetRunning(bool running)
     {
-        StartButton.IsEnabled  = !running;
-        StartButton.Content    = running ? "轉錄中..." : "開始轉錄";
-        StopButton.IsEnabled   = running;
-        FilePathBox.IsEnabled  = !running;
+        StartButton.IsEnabled      = !running;
+        StartButton.Content        = running ? "轉錄中..." : "開始轉錄";
+        StopButton.IsEnabled       = running;
+        AddFilesButton.IsEnabled   = !running;
+        RemoveFileButton.IsEnabled = !running;
+        ClearDoneButton.IsEnabled  = !running;
         if (running) StatusText.Foreground = Brushes.Gray;
     }
 }
@@ -594,6 +703,42 @@ file sealed class AppSettings
     public string ClaudeApiKey     { get; set; } = "";
     public string TranslatePrompt  { get; set; } = "日文 ASMR 字幕，保持自然、輕柔、親密的口語語氣，符合 ASMR 風格";
     public string Channel          { get; set; } = "mix";
+    public bool   NotifyOnComplete { get; set; } = false;
     public string OutputDir     { get; set; } = "";
-    public string LastFile      { get; set; } = "";
+}
+
+public enum QueueStatus { Pending, Processing, Done, Error }
+
+public class QueueItem : System.ComponentModel.INotifyPropertyChanged
+{
+    public string FilePath { get; init; } = "";
+    public string FileName => Path.GetFileName(FilePath);
+
+    private QueueStatus _status = QueueStatus.Pending;
+    public QueueStatus Status
+    {
+        get => _status;
+        set { _status = value; OnPropertyChanged(); OnPropertyChanged(nameof(StatusText)); OnPropertyChanged(nameof(StatusBrush)); }
+    }
+
+    public string StatusText => Status switch
+    {
+        QueueStatus.Pending    => "等待中",
+        QueueStatus.Processing => "處理中",
+        QueueStatus.Done       => "完成",
+        QueueStatus.Error      => "錯誤",
+        _                      => ""
+    };
+
+    public System.Windows.Media.Brush StatusBrush => Status switch
+    {
+        QueueStatus.Done       => System.Windows.Media.Brushes.DarkGreen,
+        QueueStatus.Error      => System.Windows.Media.Brushes.Red,
+        QueueStatus.Processing => System.Windows.Media.Brushes.DodgerBlue,
+        _                      => System.Windows.Media.Brushes.Gray
+    };
+
+    public event System.ComponentModel.PropertyChangedEventHandler? PropertyChanged;
+    private void OnPropertyChanged([System.Runtime.CompilerServices.CallerMemberName] string? name = null)
+        => PropertyChanged?.Invoke(this, new System.ComponentModel.PropertyChangedEventArgs(name));
 }

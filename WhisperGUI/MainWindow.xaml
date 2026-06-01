@@ -7,34 +7,68 @@
         Loaded="Window_Loaded" Closing="Window_Closing">
     <DockPanel Margin="12" LastChildFill="True">
 
-        <!-- 檔案 -->
-        <GroupBox DockPanel.Dock="Top" Header="檔案" Margin="0,0,0,8" Padding="6">
+        <!-- 檔案佇列 -->
+        <GroupBox DockPanel.Dock="Top" Header="檔案佇列" Margin="0,0,0,8" Padding="6">
             <Grid>
                 <Grid.RowDefinitions>
-                    <RowDefinition Height="32"/>
+                    <RowDefinition Height="*"/>
                     <RowDefinition Height="6"/>
                     <RowDefinition Height="32"/>
                 </Grid.RowDefinitions>
                 <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="72"/>
                     <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="Auto"/>
                     <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
 
-                <Label Grid.Row="0" Grid.Column="0" Content="輸入檔案" VerticalAlignment="Center"/>
-                <TextBox Grid.Row="0" Grid.Column="1" x:Name="FilePathBox" IsReadOnly="True"
-                         VerticalContentAlignment="Center" Margin="0,0,6,0"/>
-                <Button Grid.Row="0" Grid.Column="2" Content="瀏覽..." Width="72"
-                        Click="BrowseFile_Click"/>
+                <!-- Queue list -->
+                <ListView Grid.Row="0" Grid.Column="0" x:Name="QueueList"
+                          MinHeight="100"
+                          SelectionMode="Extended"
+                          AllowDrop="True"
+                          DragOver="QueueList_DragOver"
+                          Drop="QueueList_Drop">
+                    <ListView.View>
+                        <GridView>
+                            <GridViewColumn Header="檔案名稱" Width="360"
+                                            DisplayMemberBinding="{Binding FileName}"/>
+                            <GridViewColumn Header="狀態" Width="70">
+                                <GridViewColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <TextBlock Text="{Binding StatusText}"
+                                                   Foreground="{Binding StatusBrush}"/>
+                                    </DataTemplate>
+                                </GridViewColumn.CellTemplate>
+                            </GridViewColumn>
+                        </GridView>
+                    </ListView.View>
+                </ListView>
 
-                <Label Grid.Row="2" Grid.Column="0" Content="輸出資料夾" VerticalAlignment="Center"/>
-                <TextBox Grid.Row="2" Grid.Column="1" x:Name="OutputDirBox" IsReadOnly="True"
-                         VerticalContentAlignment="Center" Margin="0,0,6,0" Foreground="Gray"/>
-                <Button Grid.Row="2" Grid.Column="2" Content="瀏覽..." Width="72" Margin="0,0,4,0"
-                        Click="BrowseOutputDir_Click"/>
-                <Button Grid.Row="2" Grid.Column="3" Content="清除" Width="42"
-                        Click="ClearOutputDir_Click"/>
+                <!-- Right-side queue buttons -->
+                <StackPanel Grid.Row="0" Grid.Column="1" Margin="6,0,0,0" VerticalAlignment="Top">
+                    <Button x:Name="AddFilesButton" Content="新增檔案" Width="80" Margin="0,0,0,4"
+                            Click="AddFiles_Click"/>
+                    <Button x:Name="RemoveFileButton" Content="移除" Width="80" Margin="0,0,0,4"
+                            Click="RemoveFile_Click"/>
+                    <Button x:Name="ClearDoneButton" Content="清除完成" Width="80"
+                            Click="ClearDone_Click"/>
+                </StackPanel>
+
+                <!-- Output dir row -->
+                <Grid Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="2">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="72"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <Label Grid.Column="0" Content="輸出資料夾" VerticalAlignment="Center"/>
+                    <TextBox Grid.Column="1" x:Name="OutputDirBox" IsReadOnly="True"
+                             VerticalContentAlignment="Center" Margin="0,0,6,0" Foreground="Gray"/>
+                    <Button Grid.Column="2" Content="瀏覽..." Width="72" Margin="0,0,4,0"
+                            Click="BrowseOutputDir_Click"/>
+                    <Button Grid.Column="3" Content="清除" Width="42"
+                            Click="ClearOutputDir_Click"/>
+                </Grid>
             </Grid>
         </GroupBox>
 
@@ -103,10 +137,14 @@
                           x:Name="MergeCheck" Content="合併相似字幕段落"
                           VerticalAlignment="Center" Margin="4,0,0,0"/>
 
-                <!-- Row 3: VAD -->
-                <CheckBox Grid.Row="3" Grid.Column="0" Grid.ColumnSpan="4"
+                <!-- Row 3: VAD / 完成通知 -->
+                <CheckBox Grid.Row="3" Grid.Column="0" Grid.ColumnSpan="2"
                           x:Name="VadCheck" Content="VAD 靜音過濾"
                           VerticalAlignment="Center" Margin="4,0,0,0"/>
+                <CheckBox Grid.Row="3" Grid.Column="2" Grid.ColumnSpan="2"
+                          x:Name="NotifyCheck" Content="完成時通知"
+                          VerticalAlignment="Center" Margin="4,0,0,0"
+                          ToolTip="轉錄完成後顯示 Windows 通知"/>
 
                 <!-- Row 4: 聲道 -->
                 <Label Grid.Row="4" Grid.Column="0" Content="聲道" VerticalAlignment="Center"
