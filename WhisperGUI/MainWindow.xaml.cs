@@ -131,7 +131,7 @@ public partial class MainWindow : Window
     private void ClearDone_Click(object sender, RoutedEventArgs e)
     {
         var toRemove = QueueItems
-            .Where(q => q.Status == QueueStatus.Done || q.Status == QueueStatus.Error)
+            .Where(q => q.Status == QueueStatus.Done)
             .ToList();
         foreach (var item in toRemove)
             QueueItems.Remove(item);
