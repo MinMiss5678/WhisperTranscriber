@@ -10,4 +10,7 @@
     <AssemblyName>WhisperGUI</AssemblyName>
     <RootNamespace>WhisperGUI</RootNamespace>
   </PropertyGroup>
+  <ItemGroup>
+    <Resource Include="Assets\WhisperTranscriber.ico"/>
+  </ItemGroup>
 </Project>
