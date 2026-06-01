@@ -6,6 +6,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <UseWPF>true</UseWPF>
     <UseWindowsForms>true</UseWindowsForms>
+    <ApplicationIcon>Assets\WhisperTranscriber.ico</ApplicationIcon>
     <AssemblyName>WhisperGUI</AssemblyName>
     <RootNamespace>WhisperGUI</RootNamespace>
   </PropertyGroup>
