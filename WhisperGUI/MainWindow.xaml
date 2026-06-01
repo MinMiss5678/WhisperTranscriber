@@ -200,7 +200,7 @@
                 <Label Grid.Row="7" Grid.Column="0" x:Name="GeminiModelLabel"
                        Content="Gemini 模型" VerticalAlignment="Center" Visibility="Collapsed"/>
                 <TextBox Grid.Row="7" Grid.Column="1" Grid.ColumnSpan="3"
-                         x:Name="GeminiModelBox" Margin="0,4,0,4"
+                         x:Name="GeminiModelBox" Margin="0,4,0,4" Height="26"
                          VerticalContentAlignment="Center" IsEnabled="False"
                          Visibility="Collapsed"
                          Text="gemini-3.1-flash-lite"
