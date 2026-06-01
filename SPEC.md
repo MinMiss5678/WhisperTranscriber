@@ -34,6 +34,8 @@ Python 腳本輸出兩類訊息：**控制訊息**與**日誌訊息**。
 | `SRT:<path>` | `SRT:C:\...\output.srt` | 主要輸出 SRT 路徑 |
 | `SRT_REVIEW:<path>` | `SRT_REVIEW:C:\...\output_review.srt` | 校對版 SRT 路徑（原文+譯文） |
 | `CHANNEL:<ch>` | `CHANNEL:left` | 雙聲道模式下切換聲道，重置進度條 |
+| `SEGMENTS_SAVED:<path>` | `SEGMENTS_SAVED:tmp.json` | Pipeline stage 1：segments JSON 已儲存 |
+| `FILE:<n>/<total>` | `FILE:2/5` | 批次模式下目前處理第幾個檔案 |
 
 ### 日誌訊息（顯示於 LogBox）
 
@@ -71,6 +73,19 @@ Python 腳本輸出兩類訊息：**控制訊息**與**日誌訊息**。
 
 ---
 
+### Pipeline 模式（stage 1 + stage 2）
+
+當 GUI 佇列有 2+ 個檔案且翻譯啟用時，GUI 改用兩段式呼叫：
+
+```
+Stage 1（--segments-out）：載入模型 → 轉錄 → [merge] → 儲存 segments JSON → 輸出 SRT（無翻譯）
+Stage 2（--segments-in）： 不載入模型 → 讀取 segments JSON → 翻譯 → 輸出 SRT
+```
+
+Stage 1 結束後 Stage 2 作為背景 Task 啟動，同時 Stage 1 開始處理下一個檔案。
+
+---
+
 ## 模組說明
 
 ### `_extract_channel(input_file, channel)`
@@ -94,7 +109,7 @@ Python 腳本輸出兩類訊息：**控制訊息**與**日誌訊息**。
 | 模式 | 說明 |
 |---|---|
 | 空白字串 | 無內容 |
-| `[a-zA-Z]{3,}` | 日文音訊中出現 3 個以上連續拉丁字母 |
+| 3+ 拉丁字母且無 CJK 字元 | 純英文幻覺（如 "Thank you for watching"）；日英混用（如 `YouTubeで`）不過濾 |
 | `た\d+` | `た20` 類數字計數器幻覺 |
 | `[-ɏ]` | Latin Extended 字元（如土耳其語無點 i） |
 
@@ -167,7 +182,7 @@ scriptPath = Path.Combine(RepoRoot, "WhisperTranscriber.py");
 
 路徑：`%AppData%\WhisperGUI\settings.json`
 
-儲存欄位：Model、Language、Device、ComputeType、InitialPrompt、Merge、VadFilter、Translate、TranslateLang、TranslateBackend、ClaudeApiKey、TranslatePrompt、Channel、OutputDir、LastFile。
+儲存欄位：Model、Language、Device、ComputeType、InitialPrompt、Merge、VadFilter、Translate、TranslateLang、TranslateBackend、ClaudeApiKey、TranslatePrompt、Channel、NotifyOnComplete、OutputDir。
 
 `BeamSize` 已從 GUI 移除，固定傳 `--beam-size 5`；CLI 仍可覆蓋。
 
@@ -193,11 +208,15 @@ scriptPath = Path.Combine(RepoRoot, "WhisperTranscriber.py");
 
 ### 非同步執行模型
 
-`StartTranscription_Click` 為 `async void`，`RunTranscription` 為 `async Task`。
+`StartTranscription_Click` 為 `async void`，`RunTranscription` / `RunTranscriptionOnly` / `RunTranslationOnly` 為 `async Task`。
 
 stdout/stderr 各由獨立 `ConsumeStreamAsync` 讀取（避免死鎖）。Process 結束透過 `TaskCompletionSource<int>` 通知，不使用 `WaitForExit`。
 
 取消：`CancellationTokenSource` → `_process.Kill(entireProcessTree: true)`。
+
+**Pipeline 模式**（translate 啟用且佇列 2+ 檔案時）：`RunTranscriptionOnly` 完成後立即以背景 Task 啟動 `RunTranslationOnly`，同時開始下一筆轉錄。翻譯 Task 以 `ContinueWith` 回報 `QueueStatus.Done / Error`，並清理臨時 segments JSON。
+
+**Pipeline 模式**（translate 啟用且佇列 2+ 檔案時）： 完成後立即啟動  作為背景 Task，同時開始下一筆轉錄。翻譯 Task 以  回報 ，並清理臨時 segments JSON。
 
 ---
 
