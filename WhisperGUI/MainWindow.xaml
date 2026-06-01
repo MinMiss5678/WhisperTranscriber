@@ -91,6 +91,7 @@
                     <RowDefinition Height="34"/>
                     <RowDefinition Height="34"/>
                     <RowDefinition Height="34"/>
+                    <RowDefinition Height="34"/>
                 </Grid.RowDefinitions>
 
                 <!-- Row 0: 模型 / 語言 -->
@@ -203,8 +204,18 @@
                          Text="日文 ASMR 字幕，保持自然、輕柔、親密的口語語氣，符合 ASMR 風格"
                          ToolTip="翻譯時傳給 LLM 的風格指引（僅 LLM 後端有效，googletrans 忽略）"/>
 
-                <!-- Row 8: 翻譯提示預設 -->
-                <StackPanel Grid.Row="8" Grid.Column="1" Grid.ColumnSpan="3"
+                <!-- Row 8: Gemini 模型 -->
+                <Label Grid.Row="8" Grid.Column="0" x:Name="GeminiModelLabel"
+                       Content="Gemini 模型" VerticalAlignment="Center" Visibility="Collapsed"/>
+                <TextBox Grid.Row="8" Grid.Column="1" Grid.ColumnSpan="3"
+                         x:Name="GeminiModelBox" Margin="0,4,0,4"
+                         VerticalContentAlignment="Center" IsEnabled="False"
+                         Visibility="Collapsed"
+                         Text="gemini-3.1-flash-lite"
+                         ToolTip="傳給 Google GenAI SDK 的模型 ID，可改為更新的模型（如 gemini-3.5-flash-lite）"/>
+
+                <!-- Row 9: 翻譯提示預設 -->
+                <StackPanel Grid.Row="9" Grid.Column="1" Grid.ColumnSpan="3"
                             Orientation="Horizontal" Margin="0,2,0,2">
                     <Button x:Name="PresetAsmrButton" Content="ASMR 預設" Width="80"
                             Margin="0,0,6,0" IsEnabled="False" Click="PresetAsmr_Click"

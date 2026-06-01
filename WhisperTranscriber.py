@@ -33,6 +33,7 @@ def parse_args():
                         dest='translate_backend')
     parser.add_argument('--claude-api-key', default='', dest='claude_api_key')
     parser.add_argument('--gemini-api-key', default='', dest='gemini_api_key')
+    parser.add_argument('--gemini-model', default='gemini-3.1-flash-lite', dest='gemini_model')
     parser.add_argument('--translate-prompt', default='日文 ASMR 字幕，保持自然、輕柔、親密的口語語氣，符合 ASMR 風格', dest='translate_prompt')
     parser.add_argument('--channel', default='mix',
                         choices=['mix', 'left', 'right', 'split'],
@@ -106,14 +107,14 @@ async def _translate_all(segments, target_lang):
     return segments
 
 
-def translate_segments(segments, target_lang, backend='googletrans', claude_api_key='', gemini_api_key='', translate_prompt=''):
+def translate_segments(segments, target_lang, backend='googletrans', claude_api_key='', gemini_api_key='', translate_prompt='', gemini_model='gemini-3.1-flash-lite'):
     if backend == 'claude-cli':
         return _translate_with_claude_cli(segments, target_lang, translate_prompt)
     if backend in ('claude-haiku', 'claude-sonnet'):
         _model = 'claude-haiku-4-5-20251001' if backend == 'claude-haiku' else 'claude-sonnet-4-6'
         return _translate_with_claude(segments, target_lang, claude_api_key, _model, translate_prompt)
     if backend == 'gemini-flash':
-        return _translate_with_gemini(segments, target_lang, gemini_api_key, translate_prompt)
+        return _translate_with_gemini(segments, target_lang, gemini_api_key, translate_prompt, gemini_model)
     return asyncio.run(_translate_all(segments, target_lang))
 
 
@@ -261,7 +262,7 @@ def _translate_with_claude(segments, target_lang, api_key, model, translate_prom
     return segments
 
 
-def _translate_with_gemini(segments, target_lang, api_key, translate_prompt=''):
+def _translate_with_gemini(segments, target_lang, api_key, translate_prompt='', model='gemini-3.1-flash-lite'):
     import re
     import google.genai as genai
 
@@ -283,7 +284,7 @@ def _translate_with_gemini(segments, target_lang, api_key, translate_prompt=''):
 
         try:
             response = client.models.generate_content(
-                model='gemini-3.1-flash-lite',
+                model=model,
                 contents=prompt,
             )
             response_text = response.text
@@ -488,6 +489,7 @@ def _post_process(extracted, args):
             backend=args.translate_backend,
             claude_api_key=args.claude_api_key,
             gemini_api_key=args.gemini_api_key,
+            gemini_model=args.gemini_model,
             translate_prompt=args.translate_prompt,
         )
     return extracted
@@ -547,6 +549,7 @@ def _process_single_file(input_file, output_file, model, args):
                 backend=args.translate_backend,
                 claude_api_key=args.claude_api_key,
                 gemini_api_key=args.gemini_api_key,
+            gemini_model=args.gemini_model,
                 translate_prompt=args.translate_prompt,
             )
 
@@ -594,6 +597,7 @@ def _process_single_file(input_file, output_file, model, args):
                     backend=args.translate_backend,
                     claude_api_key=args.claude_api_key,
                     gemini_api_key=args.gemini_api_key,
+            gemini_model=args.gemini_model,
                     translate_prompt=args.translate_prompt,
                 )
         write_srt_file(output_file, extracted)
@@ -624,6 +628,7 @@ def _run_translate_only(args):
             backend=args.translate_backend,
             claude_api_key=args.claude_api_key,
             gemini_api_key=args.gemini_api_key,
+            gemini_model=args.gemini_model,
             translate_prompt=args.translate_prompt,
         )
 

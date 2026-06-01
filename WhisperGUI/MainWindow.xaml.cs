@@ -182,11 +182,15 @@ public partial class MainWindow : Window
         if (TranslateCheck is null || ApiKeyLabel is null || ClaudeApiKeyBox is null) return;
         bool on = TranslateCheck.IsChecked == true;
         string backend = ((ComboBoxItem)TranslateBackendCombo.SelectedItem).Tag?.ToString() ?? "";
-        bool needKey = on && backend != "googletrans" && backend != "claude-cli";
-        var vis = needKey ? Visibility.Visible : Visibility.Collapsed;
-        ApiKeyLabel.Content        = backend == "gemini-flash" ? "Gemini Key" : "API Key";
+        bool needKey    = on && backend != "googletrans" && backend != "claude-cli";
+        bool isGemini   = backend == "gemini-flash";
+        var vis         = needKey ? Visibility.Visible : Visibility.Collapsed;
+        var geminiVis   = (on && isGemini) ? Visibility.Visible : Visibility.Collapsed;
+        ApiKeyLabel.Content        = isGemini ? "Gemini Key" : "API Key";
         ApiKeyLabel.Visibility     = vis;
         ClaudeApiKeyBox.Visibility = vis;
+        if (GeminiModelLabel is not null) GeminiModelLabel.Visibility = geminiVis;
+        if (GeminiModelBox   is not null) { GeminiModelBox.Visibility = geminiVis; GeminiModelBox.IsEnabled = on && isGemini; }
     }
 
     // ── Settings persistence ──────────────────────────────────────────────────
@@ -231,6 +235,8 @@ public partial class MainWindow : Window
             SelectComboByTag(TranslateBackendCombo, s.TranslateBackend);
             ClaudeApiKeyBox.Text    = s.ClaudeApiKey;
             TranslatePromptBox.Text = s.TranslatePrompt;
+            if (!string.IsNullOrWhiteSpace(s.GeminiModel))
+                GeminiModelBox.Text = s.GeminiModel;
             SelectComboByTag(ChannelCombo, s.Channel);
             NotifyCheck.IsChecked   = s.NotifyOnComplete;
             if (!string.IsNullOrWhiteSpace(s.SubtitleEditPath))
@@ -264,6 +270,7 @@ public partial class MainWindow : Window
                 TranslateBackend = ((ComboBoxItem)TranslateBackendCombo.SelectedItem).Tag?.ToString() ?? "googletrans",
                 ClaudeApiKey     = ClaudeApiKeyBox.Text.Trim(),
                 TranslatePrompt  = TranslatePromptBox.Text.Trim(),
+                GeminiModel      = GeminiModelBox.Text.Trim(),
                 Channel          = ((ComboBoxItem)ChannelCombo.SelectedItem).Tag?.ToString() ?? "mix",
                 NotifyOnComplete  = NotifyCheck.IsChecked == true,
                 SubtitleEditPath  = _subtitleEditExe ?? "",
@@ -348,6 +355,8 @@ public partial class MainWindow : Window
         string translateBackend = ((ComboBoxItem)TranslateBackendCombo.SelectedItem).Tag?.ToString() ?? "googletrans";
         string claudeApiKey     = ClaudeApiKeyBox.Text.Trim();
         string translatePrompt  = TranslatePromptBox.Text.Trim();
+        string geminiModel      = GeminiModelBox.Text.Trim();
+        if (string.IsNullOrWhiteSpace(geminiModel)) geminiModel = "gemini-3.1-flash-lite";
         string channel          = ((ComboBoxItem)ChannelCombo.SelectedItem).Tag?.ToString() ?? "mix";
 
         bool needsKey = translate && translateBackend != "googletrans" && translateBackend != "claude-cli";
@@ -391,7 +400,7 @@ public partial class MainWindow : Window
                         await RunTranscription(audioFile, outputFile, model, language, device,
                             computeType, prompt, merge, vad, beamSize,
                             translate, translateLang, translateBackend, claudeApiKey,
-                            translatePrompt, channel, _cts.Token);
+                            translatePrompt, geminiModel, channel, _cts.Token);
                         item.Status = QueueStatus.Done;
                         processedCount++;
                         _lastAudioFile = audioFile;
@@ -474,7 +483,7 @@ public partial class MainWindow : Window
                     var capturedAudio  = audioFile;
                     translateTask = RunTranslationOnly(
                         capturedAudio, capturedOutput, capturedJson,
-                        translateLang, translateBackend, claudeApiKey, translatePrompt,
+                        translateLang, translateBackend, claudeApiKey, translatePrompt, geminiModel,
                         _cts.Token)
                         .ContinueWith(t =>
                         {
@@ -577,7 +586,7 @@ public partial class MainWindow : Window
         string model, string language, string device, string computeType,
         string prompt, bool merge, bool vad, int beamSize,
         bool translate, string translateLang, string translateBackend, string claudeApiKey,
-        string translatePrompt, string channel, CancellationToken ct)
+        string translatePrompt, string geminiModel, string channel, CancellationToken ct)
     {
         string pythonExe  = Path.Combine(RepoRoot, "venv", "Scripts", "python.exe");
         string scriptPath = Path.Combine(RepoRoot, "WhisperTranscriber.py");
@@ -618,6 +627,8 @@ public partial class MainWindow : Window
             }
             if (!string.IsNullOrWhiteSpace(translatePrompt))
                 sb.Append($" --translate-prompt \"{translatePrompt.Replace("\"", "\\\"")}\"");
+            if (translateBackend == "gemini-flash" && !string.IsNullOrWhiteSpace(geminiModel))
+                sb.Append($" --gemini-model \"{geminiModel}\"");
         }
 
         var psi = new ProcessStartInfo
@@ -749,7 +760,7 @@ public partial class MainWindow : Window
 
     private async Task RunTranslationOnly(string audioFile, string outputFile, string segmentsJsonPath,
         string translateLang, string translateBackend, string claudeApiKey,
-        string translatePrompt, CancellationToken ct)
+        string translatePrompt, string geminiModel, CancellationToken ct)
     {
         string pythonExe  = Path.Combine(RepoRoot, "venv", "Scripts", "python.exe");
         string scriptPath = Path.Combine(RepoRoot, "WhisperTranscriber.py");
@@ -770,6 +781,8 @@ public partial class MainWindow : Window
         }
         if (!string.IsNullOrWhiteSpace(translatePrompt))
             sb.Append($" --translate-prompt \"{translatePrompt.Replace("\"", "\\\"")}\"");
+        if (translateBackend == "gemini-flash" && !string.IsNullOrWhiteSpace(geminiModel))
+            sb.Append($" --gemini-model \"{geminiModel}\"");
 
         var psi = new ProcessStartInfo
         {
@@ -949,6 +962,7 @@ file sealed class AppSettings
     public string TranslateBackend { get; set; } = "googletrans";
     public string ClaudeApiKey     { get; set; } = "";
     public string TranslatePrompt  { get; set; } = "日文 ASMR 字幕，保持自然、輕柔、親密的口語語氣，符合 ASMR 風格";
+    public string GeminiModel      { get; set; } = "gemini-3.1-flash-lite";
     public string Channel          { get; set; } = "mix";
     public bool   NotifyOnComplete  { get; set; } = false;
     public string SubtitleEditPath  { get; set; } = "";
