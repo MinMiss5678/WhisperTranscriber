@@ -121,4 +121,4 @@ If an LLM backend fails or returns the wrong number of segments, it automaticall
 
 ## License
 
-[GNU GPL v3](LICENSE). Commercial distribution requires source disclosure.
+[GNU AGPL v3](LICENSE). Any distribution or network use requires source disclosure.

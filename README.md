@@ -121,4 +121,4 @@ LLM 後端失敗或回傳段數不符時，自動 fallback 至 googletrans 補�
 
 ## 授權
 
-本專案採用 [GNU GPL v3](LICENSE) 授權。商業分發須附原始碼。
+本專案採用 [GNU AGPL v3](LICENSE) 授權。任何形式的分發或網路服務須附原始碼。
