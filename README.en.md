@@ -1,5 +1,7 @@
 # Whisper Transcriber
 
+[![Ko-fi](https://img.shields.io/badge/Buy%20me%20a%20coffee-Ko--fi-FF5E5B?logo=ko-fi&logoColor=white)](https://ko-fi.com/paralleluniverse68390)
+
 Transcribe audio/video files into SRT subtitles with optional translation. Powered by [faster-whisper](https://github.com/SYSTRAN/faster-whisper). Available as a WPF GUI (Windows) and CLI.
 
 ## Features

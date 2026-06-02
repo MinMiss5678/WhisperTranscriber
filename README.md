@@ -1,5 +1,7 @@
 # Whisper Transcriber
 
+[![Ko-fi](https://img.shields.io/badge/Buy%20me%20a%20coffee-Ko--fi-FF5E5B?logo=ko-fi&logoColor=white)](https://ko-fi.com/paralleluniverse68390)
+
 將音訊/視訊檔案轉錄為 SRT 字幕，支援翻譯與雙聲道分離。使用 [faster-whisper](https://github.com/SYSTRAN/faster-whisper) 驅動，提供 CLI 與 WPF GUI 兩種使用方式。
 
 ## 功能
