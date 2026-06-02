@@ -15,6 +15,11 @@
 - 翻譯時同時輸出含原文+譯文的校對版 SRT
 - 批次佇列 + Pipeline 模式：第 N 筆翻譯與第 N+1 筆轉錄同時進行
 
+## 截圖
+
+![執行中](docs/screenshot_running.png)
+![完成結果](docs/screenshot_done.png)
+
 ## 環境需求
 
 - Windows 10 / 11

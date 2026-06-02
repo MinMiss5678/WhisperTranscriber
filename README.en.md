@@ -15,6 +15,11 @@ Transcribe audio/video files into SRT subtitles with optional translation. Power
 - Outputs both a translated SRT and a side-by-side review SRT (original + translation)
 - Batch queue with pipeline mode — translation of file N overlaps with transcription of file N+1
 
+## Screenshots
+
+![Running](docs/screenshot_running.png)
+![Result](docs/screenshot_done.png)
+
 ## Requirements
 
 - Windows 10 / 11
